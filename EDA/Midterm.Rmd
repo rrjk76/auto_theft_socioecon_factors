@@ -1,0 +1,1080 @@
+---
+title: "Exploring the Socio-Economic Factors of Auto Theft in Toronto"
+author: "Rebecca Kong"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output: github_document
+always_allow_html: yes
+
+ 
+---
+
+```{r r setup, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(glue)
+library(stringr)
+library(tibble)
+library(opendatatoronto)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(ggcorrplot)
+library(wordcloud)
+library(RColorBrewer)
+library(tidyr)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+# https://open.toronto.ca/dataset/neighbourhood-profiles/
+package_id <- "6e19a90f-971c-46b3-852c-0c48c436d1fc"
+resources <- list_package_resources(package_id)
+
+# Filter for the XLSX file for 2021
+xlsx_file <- resources |> filter(str_detect(name, "2021") & str_detect(format, "XLSX"))
+resource_id <- xlsx_file$id
+
+# Get the resource details using the resource ID
+resource_details <- get_resource(resource_id)
+
+hd2021_census_wide <- resource_details$hd2021_census_profile
+
+# write.csv(hd2021_census, "hd2021_census_wide.csv", row.names = FALSE, check.names = FALSE)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+# transpose the data
+transposed_data <- t(hd2021_census_wide)
+hd2021_census <- as.data.frame(transposed_data)
+
+# set the first row as column names
+colnames(hd2021_census) <- hd2021_census[1, ]
+hd2021_census <- hd2021_census[-1, ]
+
+# ensure column names are unique
+colnames(hd2021_census) <- make.unique(colnames(hd2021_census))
+
+# convert row names to a column
+hd2021_census <- hd2021_census |>
+  rownames_to_column(var = "Neighbourhood Name")
+
+# head(hd2021_census)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+hd2021_census <- hd2021_census |>
+  mutate(
+    `Neighbourhood Number` = as.numeric(`Neighbourhood Number`),
+    `0 to 14 years` = as.numeric(`0 to 14 years`),
+    `15 to 19 years` = as.numeric(`15 to 19 years`),
+    `20 to 24 years` = as.numeric(`20 to 24 years`),
+    `25 to 29 years` = as.numeric(`25 to 29 years`),
+    `30 to 34 years` = as.numeric(`30 to 34 years`),
+    `35 to 39 years` = as.numeric(`35 to 39 years`),
+    `40 to 44 years` = as.numeric(`40 to 44 years`),
+    `45 to 49 years` = as.numeric(`45 to 49 years`),
+    `50 to 54 years` = as.numeric(`50 to 54 years`),
+    `55 to 59 years` = as.numeric(`55 to 59 years`),
+    `60 to 64 years` = as.numeric(`60 to 64 years`),
+  )
+
+hd2021_census <- hd2021_census |>
+  mutate(
+    `15 to 24 years` = rowSums(select(hd2021_census, 
+                                      `15 to 19 years`, 
+                                      `20 to 24 years`))
+  )
+
+hd2021_census <- hd2021_census |>
+  mutate(
+    `55 to 64 years` = rowSums(select(hd2021_census, 
+                                      `55 to 59 years`, 
+                                      `60 to 64 years`))
+  )
+
+hd2021_census <- hd2021_census |>
+  mutate(
+    `25 to 54 years` = rowSums(select(hd2021_census, 
+                                      `25 to 29 years`, 
+                                      `30 to 34 years`, 
+                                      `35 to 39 years`, 
+                                      `40 to 44 years`, 
+                                      `45 to 49 years`, 
+                                      `50 to 54 years`))
+  )
+
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+census_2021_cleaned <- hd2021_census |>
+  select("Neighbourhood Name", "Neighbourhood Number", 
+         "0 to 14 years", "15 to 24 years", "25 to 54 years", "55 to 64 years", "65 years and over", "85 years and over",
+         
+         # "Median total income in 2020 ($)", 
+         "Average total income in 2020 ($)", 
+         # "Median after-tax income in 2020 ($)", 
+         "Average after-tax income in 2020 ($)",
+         
+         "Prevalence of low income based on the Low-income measure, after tax (LIM-AT) (%)",
+         
+         "Average after-tax income of household in 2020 ($)",
+         
+         # Total - Population aged 15 years and over by labour force status 
+         "In the labour force",
+         "Employed",
+         "Unemployed",
+         "Not in the labour force",
+         
+         "Employment rate",
+         "Unemployment rate",
+         
+         
+         "Total - Mother tongue for the population in private households - 25% sample data",
+         all_of(names(hd2021_census)[441]),
+         all_of(names(hd2021_census)[442]),
+         all_of(names(hd2021_census)[444]),
+         all_of(names(hd2021_census)[536]),
+         all_of(names(hd2021_census)[444]),
+         all_of(names(hd2021_census)[609]),
+         all_of(names(hd2021_census)[631]),
+         all_of(names(hd2021_census)[651]),
+         all_of(names(hd2021_census)[652]),
+         all_of(names(hd2021_census)[683]),
+         all_of(names(hd2021_census)[691]),
+         all_of(names(hd2021_census)[692]),
+         all_of(names(hd2021_census)[694]),
+         all_of(names(hd2021_census)[728]),
+         all_of(names(hd2021_census)[751])
+  )
+
+# note: the first total incomes are from: Total - Income statistics for persons aged 15 years and over not in economic families in private households - 25% sample data
+
+
+# adding column "Year", set to 2020
+census_2021_cleaned$Year <- 2020
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+df_2016 <- read.csv("df_2016.csv")
+```
+
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+census_2016_cleaned <- df_2016 |>
+  select("X", "Neighbourhood.Number.Neighbourhood.Information",
+         
+         "Children..0.14.years..Age.characteristics",
+         "Youth..15.24.years..Age.characteristics",
+         "Working.Age..25.54.years..Age.characteristics",
+         "Pre.retirement..55.64.years..Age.characteristics",
+         "Seniors..65..years..Age.characteristics",
+         "Older.Seniors..85..years..Age.characteristics", 
+         
+         
+         "Total.income..Average.amount.....Income.sources",
+         "After.tax.income..Average.amount.....Income.sources",
+         
+         
+         # Prevalence of low income based on the Low-income measure, after tax (LIM-AT) (%) Low income in 2015
+         "Prevalence.of.low.income.based.on.the.Low.income.measure..after.tax..LIM.AT......Low.income.in.2015",
+         
+         
+         "Average.after.tax.income.of.households.in.2015.....Income.of.households.in.2015",
+         
+         
+         "In.the.labour.force.Labour.force.status",
+         "Employed.Labour.force.status",
+         "Unemployed.Labour.force.status",
+         "Not.in.the.labour.force.Labour.force.status",
+         
+         
+         
+         "Employment.rate.Labour.force.status",
+         "Unemployment.rate.Labour.force.status",
+         
+         
+         "Mother.tongue.for.the.total.population.excluding.institutional.residents.Mother.tongue",
+         "English.Mother.tongue",
+         "French.Mother.tongue",
+         "Aboriginal.languages.Mother.tongue",
+         "Afro.Asiatic.languages.Mother.tongue",
+         "Slavic.languages.Mother.tongue",
+         "Germanic.languages.Mother.tongue",
+         "Greek.Mother.tongue",
+         "Indo.Iranian.languages.Mother.tongue",
+         "Italic..Romance..languages.Mother.tongue",
+         "Japanese.Mother.tongue",
+         "Korean.Mother.tongue",
+         "Niger.Congo.languages.Mother.tongue",
+         "Sino.Tibetan.languages.Mother.tongue",
+         "Turkic.languages.Mother.tongue"
+  )
+census_2016_cleaned$Year <- 2015
+```
+
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# Renaming Column Names:
+
+# first in 2021 census: 
+census_2021_cleaned <- census_2021_cleaned |>
+  rename(`Average total income` = `Average total income in 2020 ($)`,
+         `Average after-tax income` = `Average after-tax income in 2020 ($)`,
+         `Low Income Prevalence (LIM-AT) %` = `Prevalence of low income based on the Low-income measure, after tax (LIM-AT) (%)`,
+         `Average after-tax income of household` = `Average after-tax income of household in 2020 ($)`,
+         `Total Mother Tongue` = `Total - Mother tongue for the population in private households - 25% sample data`,
+         `English` = `English.1`,
+         `French` = `French.1`
+  )
+
+census_2021_cleaned <- census_2021_cleaned |>
+  mutate(`Neighbourhood Name` = case_when(
+    `Neighbourhood Name` == "Downsview" ~ "Downsview-Roding-CFB",
+    TRUE ~ `Neighbourhood Name`
+))
+
+census_2021_cleaned <- census_2021_cleaned |>
+  mutate(`Neighbourhood Number` = case_when(
+    `Neighbourhood Number` == "155" ~ "26",
+    TRUE ~ as.character(`Neighbourhood Number`)  
+  )) |>
+  mutate(`Neighbourhood Number` = as.numeric(`Neighbourhood Number`))
+
+census_2021_cleaned <- census_2021_cleaned |>
+  mutate(`Neighbourhood Name` = case_when(
+    `Neighbourhood Name` == "Islington" ~ "Islington-City Centre West",
+    TRUE ~ `Neighbourhood Name`
+))
+
+census_2021_cleaned <- census_2021_cleaned |>
+  mutate(`Neighbourhood Number` = case_when(
+    `Neighbourhood Number` == "158" ~ "14",
+    TRUE ~ as.character(`Neighbourhood Number`)  
+  )) |>
+  mutate(`Neighbourhood Number` = as.numeric(`Neighbourhood Number`))
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# adding column name for merging later with the policing dataset 
+census_2021_cleaned$NEIGHBOURHOOD_140 <- paste(census_2021_cleaned$"Neighbourhood Name", " (", census_2021_cleaned$"Neighbourhood Number", ")", sep="")
+
+census_2016_cleaned$NEIGHBOURHOOD_140 <- paste(census_2016_cleaned$"X", " (", census_2016_cleaned$"Neighbourhood.Number.Neighbourhood.Information", ")", sep="")
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# Now in 2016 census: 
+
+census_2016_cleaned <- census_2016_cleaned |>
+  rename(`Neighbourhood Name` = `X`, 
+         `Neighbourhood Number` = `Neighbourhood.Number.Neighbourhood.Information`,
+         
+         `0 to 14 years` = `Children..0.14.years..Age.characteristics`,
+         `15 to 24 years` = `Youth..15.24.years..Age.characteristics`,
+         `25 to 54 years` = `Working.Age..25.54.years..Age.characteristics`,
+         `55 to 64 years` = `Pre.retirement..55.64.years..Age.characteristics`,
+         `65 years and over` = `Seniors..65..years..Age.characteristics`,
+         `85 years and over` = `Older.Seniors..85..years..Age.characteristics`, 
+         
+         
+         `Average total income` = `Total.income..Average.amount.....Income.sources`,
+         `Average after-tax income` = `After.tax.income..Average.amount.....Income.sources`,
+         
+         
+         # Prevalence of low income based on the Low-income measure, after tax (LIM-AT) (%) Low income in 2015
+         `Low Income Prevalence (LIM-AT) %` =  `Prevalence.of.low.income.based.on.the.Low.income.measure..after.tax..LIM.AT......Low.income.in.2015`,
+         
+         
+         `Average after-tax income of household` = `Average.after.tax.income.of.households.in.2015.....Income.of.households.in.2015`,
+         
+         
+         `In the labour force` = `In.the.labour.force.Labour.force.status`,
+         `Employed` = `Employed.Labour.force.status`,
+         `Unemployed` = `Unemployed.Labour.force.status`,
+         `Not in the labour force` = `Not.in.the.labour.force.Labour.force.status`,
+         
+         
+         
+         `Employment rate` = `Employment.rate.Labour.force.status`,
+         `Unemployment rate` = `Unemployment.rate.Labour.force.status`,
+         
+         
+         `Total Mother Tongue` = `Mother.tongue.for.the.total.population.excluding.institutional.residents.Mother.tongue`,
+         `English` = `English.Mother.tongue`,
+         `French` = `French.Mother.tongue`,
+         `Indigenous languages` = `Aboriginal.languages.Mother.tongue`,
+         `Afro-Asiatic languages` = `Afro.Asiatic.languages.Mother.tongue`,
+         `Slavic languages` = `Slavic.languages.Mother.tongue`,
+         `Germanic languages` = `Germanic.languages.Mother.tongue`,
+         `Greek` = `Greek.Mother.tongue`,
+         `Indo-Iranian languages` = `Indo.Iranian.languages.Mother.tongue`,
+         `Italic (Romance) languages` = `Italic..Romance..languages.Mother.tongue`,
+         `Japanese` = `Japanese.Mother.tongue`,
+         `Korean` = `Korean.Mother.tongue`,
+         `Niger-Congo languages` = `Niger.Congo.languages.Mother.tongue`,
+         `Sino-Tibetan languages` = `Sino.Tibetan.languages.Mother.tongue`,
+         `Turkic languages` = `Turkic.languages.Mother.tongue`
+  )
+
+
+census_2016_cleaned <- census_2016_cleaned |>
+  arrange(`Neighbourhood Number`)
+
+```
+
+```{r}
+# writing to csv for easier access later (if everything is wiped out in the R environment)
+# census_2021_cleaned <- data.frame(census_2021_cleaned, check.names = FALSE)
+# write.csv(data/census_2021_cleaned, "census_2021_cleaned.csv", row.names = FALSE)
+
+# census_2016_cleaned <- data.frame(census_2016_cleaned, check.names = FALSE)
+# write.csv(data/census_2016_cleaned, "census_2016_cleaned.csv", row.names = FALSE)
+
+# reading in in case it is needed: 
+# census_2016_cleaned <- read.csv("data/census_2016_cleaned.csv", check.names = FALSE)
+# census_2021_cleaned <- read.csv("data/census_2020_cleaned.csv", check.names = FALSE)
+```
+
+
+``` {r echo=FALSE, error=FALSE, warning=FALSE}
+# now, combining the 2 datasets: 
+exclude_cols <- c("Neighbourhood Name", "NEIGHBOURHOOD_140")
+
+# Change data type of all columns except `col1` and `col2`
+census_2021_cleaned <- census_2021_cleaned |>
+  mutate(across(-all_of(exclude_cols), as.numeric))
+
+census_2021_cleaned$`Total average after-tax household income` <- mean(census_2021_cleaned$`Average after-tax income of household`)
+census_2016_cleaned$`Total average after-tax household income` <- 81495
+
+
+census_data <- bind_rows(census_2016_cleaned, census_2021_cleaned)
+
+# census_data <- data.frame(census_data, check.names = FALSE)
+# write.csv(census_data, "data/census_data.csv", row.names = FALSE)
+# census_data <- read.csv("data/census_data.csv", check.names = FALSE)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# Loading the second dataset (which is the Auto Theft Open Data) - this one requires no API, I simply downloaded the dataset online. 
+auto_theft_data <- read.csv("data/Auto_Theft_Open_Data.csv")
+
+# keep only auto_theft_data from 2020
+auto_theft_2015_2020 <- auto_theft_data |>
+  filter(REPORT_YEAR == 2015 | REPORT_YEAR == 2020)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+auto_theft_census <- merge(auto_theft_2015_2020, census_data, by.x = c("NEIGHBOURHOOD_140", "REPORT_YEAR"), by.y = c("NEIGHBOURHOOD_140", "Year"))
+
+# auto_theft_census <- data.frame(auto_theft_census, check.names = FALSE)  # Prevents column name changes
+# write.csv(data/auto_theft_census, "auto_theft_census.csv", row.names = FALSE)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# auto_theft_census <- read.csv("data/auto_theft_census.csv", check.names = FALSE )
+```
+
+Github Link: https://github.com/rrjk76/auto_theft_socioecon_factors
+
+# Introduction
+Auto theft is a prominent concern in urban environments, and the City of Toronto is no exception. Beyond being a property crime, auto theft is often intertwined to broader criminal activity, including organized crime, fraud, and illicit resale markets. For vehicle owners, the theft of a car can be more than just an inconvenience: it can disrupt their daily lives, limit access to work and essential services, and cause heavy financial strain due to insurance claims, replacement costs, and legal processes. From a more comprehensive perspective, high auto theft rates may indicate deeper socio-economic issues, such as income inequality, unemployment, or systemic vulnerabilities in certain neighbourhoods. 
+
+
+Toronto being Canada's largest city frequently reports high-profile cases of vehicle theft, often covered in the media. However, beyond simply the headlines, an important question that arises is whether there are identifiable patterns or relationships between auto theft rates and soco-economic factors in Toronto. Do economic conditions, such as individual income, household income, or employment levels, correspond to higher vehicle-related crime? Thus, the goal of this analysis is to explore the relationship between auto theft rates in Toronto and various socio-economic factors, seeking to understand whether certain socio-economic conditions can serve as indicators for higher rates of vehicle-related crimes.
+
+
+To explore the relationship between auto theft and socio-economic factors in Toronto, this analysis utilizes census datasets from the Toronto Open Data Neighbourhood Profiles. Since Canadian census data is collected every five years and released the following year, I have chosen to examine the census data published in 2016 and 2021, which correspond to socio-economic conditions in 2015 and 2020, respectively. These datasets provide a wealth of information, including demographic characteristics, income levels, employment and unemployment rates, and linguistic diversity across Toronto’s neighbourhoods.
+
+
+In addition to the census data, this analysis incorporates the Toronto Police Service Auto Theft Open Data, which contains reported incidents of vehicle theft across the city. By integrating these datasets, this study aims to identify potential correlations between socio-economic conditions and auto theft rates, offering insights into whether certain neighbourhood characteristics may be indicative of higher rates of vehicle-related crimes.
+
+# Methods 
+The datasets used in this analysis were obtained from the Toronto Open Data Portal and the Toronto Police Open Data Service. Although the 2021 Neighbourhood Profiles dataset, which provides socio-economic information at the neighbourhood level, offered directly downloading an XLSX file, I decided to access the dataset using package identifiers and resource retrieval methods rather than direct XLSX download. Specifically, the `list_package_resources` function was used to retrieve a list of available datasets, including package IDs for all census datasets dating back to 2006. From this list, the 2021 census package ID was selected. Using the `get_resource` method, the dataset details were extracted, yielding a response containing all relevant census data. Both of the functions mentioned above are from the Toronto Open Data Package system. The dataset itself was accessed through the `resource_details$hd2021_census_profile` object and assigned to a data frame for further processing. Overall, this process involved querying metadata, identifying the correct dataset, and extracting structured data from the response.
+
+Upon inspecting the 2021 data, it became evident that the data was structured in a wide format, where neighbourhood names were set as column names, and attributes such as income, age, and employment status were stored as row names, as seen in *Table 1*:
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, eval=FALSE}
+ hd2021_census_wide |>
+  select(1:5) |>  
+  head(5) |>  
+  kable(caption = " Table 1: Sample of the Wide Dataset (First 5 Columns & Rows)") |>
+  kable_styling(full_width = FALSE)
+```
+
+
+This made it difficult to analyze and merge with other datasets. Thus, in order to address this, I transposed the data using the `t()` function, converting it from wide format to long format, and ensuring that each row corresponded to a neighbourhood, with relevant attributes stored in separate columns. As a result, the dataset, initially containing 158 variables and 2,604 observations, was transformed into a more manageable structure with 158 observations and 2,604 attributes.
+
+The 2016 Neighbourhood Profiles dataset was acquired slightly differently. Originally, I tried acquiring the dataset by retrieving the package ID associated with the dataset. However, unlike the 2021 dataset, it lacked crucial socio-economic indicators, such as average and median household income at the neighbourhood level. To supplement this missing information, I identified an alternative data source, a Kaggle Notebook, that demonstrated an approach for deriving neighbourhood-level income estimates. I cloned this Kaggle Notebook to adapt the data deriving methodology, and I saved the output into a CSV file, which was then imported into R. This ensured that both the 2016 and 2021 census datasets had consistent column structures for direct comparison.
+
+I noticed that the 2016 census data only contained data for 148 neighbourhoods, while the 2021 census contained data for 158 neighbourhoods. To fix this inconsistency, I manually changed the data in the 2021 census to match the 148 neighbourhood system in the 2016 census data. Plus, since there are over 2000 columns/attributes for both the 2016 and 2021 census datasets, I used the `select` function to choose only the key variables to keep for my analysis. *Table 2* outlines some of the important attributes I kept in each census dataset. 
+
+```{r, eval=FALSE}
+ census_2016_cleaned |>
+  select(1:15) |>  
+  head(6) |>  
+  kable(caption = " Table 2: Sample Output of Data Showing Some Key Variables") |>
+  kable_styling(full_width = TRUE)
+```
+
+Because the names of the two datasets were inconsistent, I used the `rename()` function to simplify the names and ensure consistency for row binding the datasets later on. Once both datasets were cleaned, further data wrangling steps were performed to prepare them for merging. Column names were standardized to ensure consistency, and additional columns were added:
+
+* NEIGHBOURHOOD_140: A reformatted neighbourhood identifier that facilitated merging with the auto theft dataset.
+
+* Year: A column specifying the corresponding census year (2015 for the 2016 census and 2020 for the 2021 census).
+
+A key issue I encountered was that all values in the 2021 dataset were stored as character data, while the 2016 dataset contained numerical values (except for neighbourhood names). To resolve this inconsistency, all numeric variables in the 2021 dataset were converted to numeric data types using the `as.numeric` function, ensuring uniformity across both datasets. The two census datasets were then combined into a single dataset using `rbind()`, now containing socio-economic indicators for both 2015 and 2020.
+
+Finally, the Auto Theft dataset was retrieved from the Toronto Police Open Data Service. This dataset contained information on vehicle theft incidents across different neighbourhoods in Toronto. It was merged with the combined 2015 and 2020 census dataset using two key attributes:
+
+* NEIGHBOURHOOD_140 (to match neighbourhoods across datasets).
+
+* Year and REPORT_YEAR (to ensure data alignment by year).
+
+These pre-processing steps ensured that the final dataset was structured for further analysis, allowing for an investigation into the relationship between socio-economic factors and auto theft rates across Toronto’s neighbourhoods.
+
+
+# Preliminary Results
+To gain insights into auto theft trends in Toronto and their potential socio-economic correlations, I first created a summary statistics table. This table presents key values, including:
+
+* Total auto thefts recorded in 2015 and 2020.
+* Average total income in Toronto for each year.
+* Unemployment rate (%), which reflects the percentage of unemployed individuals in the labor force.
+* Low-income prevalence (%), indicating the proportion of the population classified as low-income.
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# Summary statistics for auto theft incidents
+auto_theft_summary <- auto_theft_census |>
+  group_by(REPORT_YEAR) |>
+  summarise(
+    Total_Auto_Theft = n(),
+    Average_Income = mean(`Average total income`, na.rm = TRUE),
+    Unemployment_Rate = mean(`Unemployment rate`, na.rm = TRUE),
+    Low_Income_Prevalence = mean(`Low Income Prevalence (LIM-AT) %`, na.rm = TRUE)
+  )
+
+kable(
+  auto_theft_summary, 
+  caption = "Table 3: Summary Statistics for Auto Theft and Socio-Economic Factors",
+  caption.placement = "top", 
+  caption.bold = TRUE         
+) |>
+  kable_styling(
+    "striped", 
+    full_width = FALSE, 
+    position = "center"
+  ) |>
+  add_header_above(c(" " = ncol(auto_theft_summary)), bold = TRUE, color = "blue") |>
+  footnote(
+    general = "Data source: auto_theft_census.csv",
+    general_title = "Note:",
+    footnote_as_chunk = TRUE
+  ) |>
+  row_spec(0, bold = TRUE, color = "white", background = "#4C4C4C")  # Style the header row
+
+```
+
+In *Table 3*, we can see that there is an increase in the total number of auto thefts between 2015 and 2020. We can also see that there is a slight raise in income compared to 2016 and 2020, with a small increase from $49,183 in 2015 to $49,447 in 2020. Although the average income in Toronto has remained relatively stable. We *do* see, however, that there is also a surge in the unemployment rate, rising sharply from 8.62% in 2015 to 14.55% in 2020. This is likely influenced by the economic disruptions such as the COVID-19 pandemic, and I will take this into account for this analysis. Finally, *Table 3* shows us that the percentage of the population classified as low-income declined from 19.61% to 12.21%, suggesting potential improvements in economic conditions for some groups.
+
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+auto_theft_census |> 
+  ggplot(mapping = aes(x = REPORT_YEAR, fill = as.factor(REPORT_YEAR))) +
+    geom_bar() +
+    labs(title = "Auto Theft Incidents Over Time",
+         x = "Year",
+         y = "Number of Incidents",
+         fill = "Year",
+         caption = "Figure 1: Bar plot of auto theft incidents from 2015 and 2020"
+         ) +
+    theme_bw() + 
+    theme(
+      plot.title = element_text(hjust = 0.5),  
+      plot.caption = element_text(hjust = 0.5, face = "italic")  
+    )
+```
+Above in *Figure 1*, we can see visually that there is quite a large jump in auto theft numbers in 2020 compared to 2015, with 2015 having 3244 vehicles stolen, and 2020 having 4873 vehicles stolen. 
+
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+combined_data <- auto_theft_census |>
+  group_by(REPORT_YEAR) |>
+  summarise(
+    Average_After_Tax_Income = mean(`Average total income`, na.rm = TRUE),
+    Average_After_Tax_Household_Income = `Total average after-tax household income`
+  ) |>
+  distinct()
+
+kable(
+  combined_data, 
+  caption = "Table 4: Summary Statistics for Average Household Income",
+  caption.placement = "top", 
+  caption.bold = TRUE         
+) |>
+  kable_styling(
+    "striped", 
+    full_width = FALSE, 
+    position = "center"
+  ) |>
+  add_header_above(c(" " = ncol(combined_data)), bold = TRUE, color = "blue") |>
+  footnote(
+    general = "Data source: auto_theft_census.csv",
+    general_title = "Note:",
+    footnote_as_chunk = TRUE
+  ) |>
+  row_spec(0, bold = TRUE, color = "white", background = "#4C4C4C")  
+
+```
+
+*Table 4* shows the average after-tax income for individuals and households across two years. As mentioned, individual after-tax income remained fairly stable, with only a small increase from ~$49,183 (2015) to ~$49,447 (2020). However,household after-tax income increased significantly, from ~$81,495 in 2015 to ~$98,785 in 2020.
+
+There is a key distinction in how income is calculated for individuals versus households, and that is: 
+
+* Individual Income (Average_After_Tax_Income) refers to total income statistics for an individual aged 15 years and over who are not in economic families or living in private households. It represents income at the personal level, including wages, government benefits, and investment earnings. 
+
+* Household Income (Average_After_Tax_Household_Income) refers to total income for all members of a household/people living together combined. It includes combined salaries, government benefits, and other earnings of everyone in that household, and hence why the overall values are much higher compared to individual income.  
+ 
+
+Both of these statistics are important for this analysis, as they give us a more comprehensive understanding of economic conditions and their potential relationship with auto theft trends. Individual after-tax income helps us understand the financial stability of single earners, particularly those not part of a family unit. Household after-tax income, on the other hand, provides insight into the overall economic well-being of families and shared living arrangements. 
+
+Below, *Figure 2* gives us a great visual representation of the after-tax income trends. This helps us visually see that individual income has remained rather stagnant while household income has increased quite a bit. 
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+combined_data |> 
+  ggplot(mapping = aes(x = REPORT_YEAR)) +
+    geom_line(aes(y = Average_After_Tax_Income, color = "Average After-Tax Income"), size = 1) +
+    geom_line(aes(y = Average_After_Tax_Household_Income, color = "Average After-Tax Household Income"), size = 1) +
+    labs(
+      title = "Income Trends Over the Years",
+      x = "Report Year",
+      y = "Income (CAD)",
+      color = "Income Type",
+      caption = "Figure 2: Line graph of after-tax income trends"
+    ) +
+    theme_minimal() +
+    scale_color_manual(values = c("Average After-Tax Income" = "skyblue", "Average After-Tax Household Income" = "salmon")) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+      legend.position = "bottom"
+    ) + 
+    theme(
+      plot.title = element_text(hjust = 0.5),  
+      plot.caption = element_text(hjust = 0.5, face = "italic")  
+    )
+
+
+```
+
+
+Now, I want to also get a deeper understanding of where the most auto thefts are occurring, specifically which neighbourhood. 
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, eval= FALSE}
+neighbourhood_summary <- auto_theft_census |>
+  filter(!is.na(NEIGHBOURHOOD_140)) |>
+  group_by(NEIGHBOURHOOD_140) |>
+  summarize(Total_Auto_Theft = n(), .groups = "drop")
+
+neighborhood_locations <- auto_theft_census |>
+  filter(!is.na(NEIGHBOURHOOD_140) & !is.na(LAT_WGS84) & !is.na(LONG_WGS84)) |>
+  group_by(NEIGHBOURHOOD_140) |>
+  summarize(lat = mean(LAT_WGS84), lon = mean(LONG_WGS84), .groups = "drop")
+
+crime_map_data <- left_join(neighbourhood_summary, neighborhood_locations, by = "NEIGHBOURHOOD_140")
+
+pal = colorNumeric(palette = rev(viridis::magma(256)), domain = crime_map_data$Total_Auto_Theft)
+
+leaflet(crime_map_data) |>
+  addTiles() |>  
+  addCircleMarkers(
+    ~lon, ~lat, 
+    radius = ~sqrt(Total_Auto_Theft) * 2, 
+    color = ~pal(Total_Auto_Theft),
+    fillColor = ~pal(Total_Auto_Theft),
+    fillOpacity = 1.0,
+    popup = ~paste0("<b>Neighborhood: </b>", NEIGHBOURHOOD_140, "<br>",
+                    "<b>Total Crimes: </b>", Total_Auto_Theft)
+  ) |>
+  addLegend(
+    position = "bottomright",
+    pal = pal,
+    values = crime_map_data$Total_Auto_Theft,
+    title = "Crime Count",
+    labels = "Higher crimes → Bigger circles"
+  ) |>
+  addControl(
+    html = "<h4 style='color:black; font-weight: bold;'>Figure 3: Auto Theft and Socio-Economic Analysis in Toronto</h4>",
+    position = "bottomleft"
+  )
+```
+
+The *Figure 3* leaflet map visualizes the spatial distribution of auto theft incidents across different neighborhoods in Toronto, providing an interactive way to examine crime density and making it easier to quickly identify areas that may require targeted interventions or additional resources. As seen, the large black circle represents the area with the most total auto thefts in 2015 and 2020. 
+
+To take a closer look at the comparison between 2015 and 2020, *Figure 4* displays the number of auto thefts of the top 20 neighbourhoods with the most reported cases of auto theft. 
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+auto_theft_census <- auto_theft_census |>
+  group_by(REPORT_YEAR, `Neighbourhood Name`) |>
+  mutate(Total_Auto_Thefts = n()) |>
+  ungroup()  
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# Get the top 20 neighbourhoods by total auto theft incidents
+top_neighbourhoods <- auto_theft_census |>
+  group_by(`Neighbourhood Name`) |>
+  summarise(total_incidents = sum(Total_Auto_Thefts, na.rm = TRUE)) |>
+  arrange(desc(total_incidents)) |>
+  head(20) |>
+  pull(`Neighbourhood Name`)
+
+# Filter data for only the top 20 neighbourhoods
+top_20_neighbourhoods <- auto_theft_census |>
+  filter(`Neighbourhood Name` %in% top_neighbourhoods)
+
+top_20_neighbourhoods |>
+  ggplot(mapping = aes(x = `Neighbourhood Name`, fill = factor(REPORT_YEAR))) + 
+  scale_fill_manual(values = c("lightblue", "lightgreen")) +
+  geom_bar(position = "dodge") + 
+  labs(
+    title = "Top 20 Neighbourhoods with Highest Auto Theft Incidents",
+    x = "Neighbourhood",
+    y = "Number of Incidents",
+    fill = "Year",
+    caption = "Figure 4: Double Bar Graph of the Top 20 Neighbourhoods"
+  ) +
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  theme(
+    plot.title = element_text(hjust = 0.5),  
+    plot.caption = element_text(hjust = 0.5, face = "italic")  
+  ) + 
+  coord_flip()
+```
+From Figure 4 (and the interactive Leaflet map in Figure 3), we can see that West Humber-Clairville has the highest number of auto thefts in both 2015 and 2020, with a notable increase in 2020. To understand this trend, we need to further explore socio-economic factors such as average income and unemployment rates in that neighborhood specifically. Analyzing these factors alongside auto theft data will help determine if they are linked to the rise in crime.
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+income_extremes_2015 <- auto_theft_census |>
+  filter(REPORT_YEAR == 2015) |>
+  distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |>
+  arrange(`Average total income`) |>
+  slice_head(n = 5) |>
+  mutate(Category = "Lowest") |>  
+  bind_rows(
+    auto_theft_census |>
+      filter(REPORT_YEAR == 2015) |>
+      distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |>
+      arrange(desc(`Average total income`)) |>
+      slice_head(n = 5) |> 
+      mutate(Category = "Highest") 
+  ) |>
+  bind_rows(
+    auto_theft_census |>
+      filter(REPORT_YEAR == 2015 & `Neighbourhood Name` == "West Humber-Clairville") |>
+      distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |> 
+      mutate(Category = "West Humber-Clairville") 
+  )
+
+# Plot with new category colors
+ggplot(income_extremes_2015, aes(x = reorder(NEIGHBOURHOOD_140, -`Average total income`), 
+                                 y = `Average total income`, fill = Category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Neighborhoods with Highest & Lowest Average Income (2015)",
+    x = "Neighborhood",
+    y = "Average Household Income",
+    fill = "Category",
+    caption = "Figure 5: Flipped bar plot dipicting income extremes in 2015"
+  ) +
+  scale_fill_manual(values = c("Highest" = "steelblue", "Lowest" = "red", "West Humber-Clairville" = "orange")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 11),  
+    plot.caption = element_text(hjust = 0.5, face = "italic"),  
+    legend.position = "bottom"
+) +
+  coord_flip()
+```
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+income_extremes_2020 <- auto_theft_census |>
+  filter(REPORT_YEAR == 2020) |>
+  distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |>
+  arrange(`Average total income`) |>
+  slice_head(n = 5) |>
+  mutate(Category = "Lowest") |>  
+  bind_rows(
+    auto_theft_census |>
+      filter(REPORT_YEAR == 2020) |>
+      distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |>
+      arrange(desc(`Average after-tax income of household`)) |>
+      slice_head(n = 5) |> 
+      mutate(Category = "Highest")  
+  ) |>
+  bind_rows(
+    auto_theft_census |>
+      filter(REPORT_YEAR == 2020 & `Neighbourhood Name` == "West Humber-Clairville") |>
+      distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |> 
+      mutate(Category = "West Humber-Clairville")  
+  )
+
+# Plot with new category colors
+ggplot(income_extremes_2020, aes(x = reorder(NEIGHBOURHOOD_140, -`Average total income`), 
+                                 y = `Average total income`, fill = Category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Neighborhoods with Highest & Lowest Average Income (2020)",
+    x = "Neighborhood",
+    y = "Average Household Income",
+    fill = "Category",
+    caption = "Figure 6: Flipped bar plot dipicting income extremes in 2020"
+  ) +
+  scale_fill_manual(values = c("Highest" = "steelblue", "Lowest" = "red", "West Humber-Clairville" = "orange")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 11),  
+    plot.caption = element_text(hjust = 0.5, face = "italic"),  
+    legend.position = "bottom"
+) +
+  coord_flip()
+```
+
+To explore the impact of average income on auto thefts further, *Figure 7* presents a box plot that categorizes neighborhoods into five income brackets to examine whether lower average individual income correlates with higher auto theft rates. The figure illustrates that neighborhoods in the lower income brackets tend to experience greater variability in auto theft incidents, as indicated by the wider interquartile ranges and longer tails. In contrast, higher-income brackets exhibit lower variation, with flatter boxes and fewer extreme values. Notably, the highest recorded auto theft count—previously identified as West Humber-Clairville—falls within one of the lower income brackets in both 2015 and 2020, suggesting a potential relationship between neighbourhoods with lower income levels and higher auto theft rates. 
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+auto_theft_census |>
+  ggplot(mapping = aes(x = cut(`Average total income`, breaks = 5), y = Total_Auto_Thefts, fill = as.factor(REPORT_YEAR))) + 
+  geom_boxplot() + 
+  labs(
+    title = "Auto Theft Incidents Across Income Groups",
+    x = "Income Brackets",
+    y = "Total Auto Thefts",
+    fill = "Year",
+    caption = "Figure 7: Boxplot using 5 breaks analyzing auto theft incidents across income groups"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5),  
+    plot.caption = element_text(hjust = 0.5, face = "italic")  
+  )
+
+
+```
+
+
+Given that there is a relationship between average income of a neighbourhood and auto theft rates, I believe that it will also be insightful to take a look at employment and unemployment rates. 
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+correlation_matrix <- auto_theft_census |>
+  # select(Total_Auto_Thefts, `Average total income`, `Unemployment rate`, `Low Income Prevalence (LIM-AT) %`) |>
+  select(`Average total income`, `Average after-tax income of household`, Total_Auto_Thefts, `Low Income Prevalence (LIM-AT) %`, `Employment rate`, `Unemployment rate`) |>
+  cor(use = "complete.obs")
+
+correlation_matrix |>
+  kable(caption = "Table 5: Correlation Matrix of Auto Theft and Socio-Economic Factors") |>
+  kable_styling("striped", full_width = FALSE, position = "center") 
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, eval=FALSE}
+correlation_matrix <- 
+  cor(auto_theft_census |> 
+        select(`Average total income`, `Average after-tax income of household`, Total_Auto_Thefts, `Low Income Prevalence (LIM-AT) %`, `Employment rate`, `Unemployment rate`), 
+      use = "complete.obs")
+
+ggcorrplot(correlation_matrix, 
+           lab = TRUE, 
+           title = "Correlation Heatmap of Social Indicators")
+```
+
+Above, *Table 5* presents a correlation table matrix, highlighting the relationships between several numerical social indicators. It’s no surprise that individual income is positively correlated with household income, with a correlation of 0.43. This indicates that as individual income rises, so does household income, which is consistent with general economic expectations. Similarly, both average total income and average after-tax household income show a moderate positive correlation with the employment rate, suggesting that areas with higher income levels tend to have higher employment rates.
+
+However, the more interesting part is that *Table 5* also reveals a pattern: as the employment rate increases, there is a negative correlation with the number of auto thefts. This indicates that areas with higher employment tend to experience fewer auto thefts. On the other hand, higher unemployment rates in neighbourhoods correlate with higher numbers of auto thefts. Although the correlation is weak (0.23), this positive relationship suggests a potential trend, implying that higher unemployment may be associated with an increase in auto theft incidents.
+
+To investigate this further, we can examine the relationship between employment and unemployment rates with auto thefts using a scatter plot with a regression line, which will allow us to visually assess the strength and direction of these correlations.
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+aggregated_data <- auto_theft_census |>
+  group_by(`Neighbourhood Name`) |>
+  summarise(
+    Auto_Theft_Count = n(),  # Count of auto theft incidents
+    Employment_Rate = mean(`Employment rate`, na.rm = TRUE),  # Average employment rate
+    Unemployment_Rate = mean(`Unemployment rate`, na.rm = TRUE)  # Average unemployment rate
+  )
+
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, eval=FALSE}
+ggplot(aggregated_data, aes(x = Employment_Rate, y = Auto_Theft_Count)) +
+  geom_point(color = "lightblue", size = 3) +
+  geom_smooth(method = "lm", se = FALSE, color = "purple") +
+  labs(
+    title = "Auto Theft Rates vs. Employment Rates",
+    x = "Employment Rate (%)",
+    y = "Number of Auto Theft Incidents",
+    caption = "Figure 8: Plot (TODO: white type) depicting Auto Theft Rates vs. Employment Rates"
+  ) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5),  
+    plot.caption = element_text(hjust = 0.5, face = "italic")  
+  )
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, eval=FALSE}
+# Plot Auto Theft Rates vs. Unemployment Rates
+ggplot(aggregated_data, aes(x = Unemployment_Rate, y = Auto_Theft_Count)) +
+  geom_point(color = "lightgreen", size = 3) +
+  geom_smooth(method = "lm", se = FALSE, color = "orange") +
+  labs(
+    title = "Auto Theft Rates vs. Unemployment Rates",
+    x = "Unemployment Rate (%)",
+    y = "Number of Auto Theft Incidents",
+    caption = "Figure 9: Plot (TODO: white type) depicting Auto Theft Rates vs. Unemployment Rates"
+  ) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5),  
+    plot.caption = element_text(hjust = 0.5, face = "italic")  
+  )
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+aggregated_long <- aggregated_data |>
+  select(Auto_Theft_Count, Unemployment_Rate, Employment_Rate) |>
+  pivot_longer(cols = c(Unemployment_Rate, Employment_Rate),
+               names_to = "Rate_Type", values_to = "Rate")
+
+# Replace column names for better facet labels
+aggregated_long$Rate_Type <- recode(aggregated_long$Rate_Type, 
+                                    "Unemployment_Rate" = "Unemployment Rate (%)",
+                                    "Employment_Rate" = "Employment Rate (%)")
+
+# Plot with facet_wrap
+ggplot(aggregated_long, aes(x = Rate, y = Auto_Theft_Count)) +
+  geom_point(aes(color = Rate_Type), size = 4, alpha = 0.8) +  # Larger points, slight transparency
+  geom_smooth(method = "lm", se = FALSE, color = "purple", linewidth = 1.5) +  # Black regression line
+  facet_wrap(~Rate_Type, scales = "free_x") +  # Facet by Rate_Type
+  labs(
+    title = "Auto Theft Rates vs. Employment & Unemployment Rates",
+    x = "Rate (%)",
+    y = "Number of Auto Theft Incidents",
+    caption = "Figure 8: Faceted plots showing Auto Theft Rates vs. Employment and Unemployment Rates"
+  ) +
+  scale_color_manual(values = c("Unemployment Rate (%)" = "lightblue", 
+                                "Employment Rate (%)" = "lightgreen")) +
+  theme_minimal() + 
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14),  
+    plot.caption = element_text(hjust = 0.5, face = "italic", size = 10),  
+    # strip.text = element_text(size = 16, face = "bold"),  
+    # axis.text = element_text(size = 14),  # Larger axis text
+    # axis.title = element_text(size = 16),  # Larger axis labels
+    legend.position = "none"
+  )
+
+```
+
+*Figure 8* is a faceted scatter plot with regression lines, illustrating the relationship between employment and unemployment rates and the number of auto theft incidents. The regression lines indicate an increasing slope with employment rates, suggesting that as employment rates rise, the number of auto thefts tends to decrease. Conversely, the regression line for unemployment rates shows a negative slope, implying that as unemployment increases, auto theft incidents tend to rise.
+
+
+Now, most of the analysis I've done so far has been related to economic factors (as I've been analyzing data corresponding to individual income, household income, employment, and unemployment rates, etc.). Now, I want to dive deeper into some social aspects. Social aspects I will be analyzing are languages spoken in neighbourhoods and ages in neighbourhoods where auto thefts happen the most often.
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+data_aggregated <- top_20_neighbourhoods |>
+  group_by(REPORT_YEAR, `Neighbourhood Name`) |>
+  summarise(
+    Total_Auto_Thefts = n(),
+    Total_Respondants = sum(`Total Mother Tongue`, na.rm = TRUE),
+    English_Speakers = (sum(English, na.rm = TRUE) / Total_Respondants) * 100,
+    French_Speakers = (sum(French, na.rm = TRUE) / Total_Respondants) * 100,
+    Indigenous_Languages = (sum(`Indigenous languages`, na.rm = TRUE) / Total_Respondants) * 100,
+    Afro_Asiatic_Languages = (sum(`Afro-Asiatic languages`, na.rm = TRUE) / Total_Respondants) * 100,
+    Slavic_Languages = (sum(`Slavic languages`, na.rm = TRUE) / Total_Respondants) * 100,
+    Germanic_Languages = (sum(`Germanic languages`, na.rm = TRUE) / Total_Respondants) * 100,
+    Greek_Speakers = (sum(Greek, na.rm = TRUE) / Total_Respondants) * 100,
+    Indo_Iranian_Languages = (sum(`Indo-Iranian languages`, na.rm = TRUE) / Total_Respondants) * 100,
+    Italic_Languages = (sum(`Italic (Romance) languages`, na.rm = TRUE) / Total_Respondants) * 100,
+    Japanese_Speakers = (sum(Japanese, na.rm = TRUE) / Total_Respondants) * 100,
+    Korean_Speakers = (sum(Korean, na.rm = TRUE) / Total_Respondants) * 100,
+    Nigeria_Congo_Languages = (sum(`Niger-Congo languages`, na.rm = TRUE) / Total_Respondants) * 100,
+    Sino_Tibetan_Languages = (sum(`Sino-Tibetan languages`, na.rm = TRUE) / Total_Respondants) * 100,
+    Turkic_Languages = (sum(`Turkic languages`, na.rm = TRUE) / Total_Respondants) * 100
+  ) |>
+  ungroup()
+
+```
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+top_languages_avg <- data_aggregated |>
+  summarise(across(English_Speakers:Turkic_Languages, mean, na.rm = TRUE)) |>
+  pivot_longer(
+    cols = everything(),
+    names_to = "Language",
+    values_to = "Percentage"
+  ) |>
+  arrange(desc(Percentage))
+
+ggplot(top_languages_avg, aes(x = reorder(Language, -Percentage), y = Percentage, fill = Language)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Average Language % in 20 Neighbourhoods with Most Auto Thefts",
+    x = "Language",
+    y = "Average Percentage of Speakers",
+    caption = "Figure 9: Bar plot depicting the most spoken languages in the 20 neighbourhoods with the most auto thefts"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14),  # Larger title
+    plot.caption = element_text(hjust = 0.5, face = "italic", size = 10)
+  ) + 
+  coord_flip()
+```
+
+Above, *Figure 9* illustrates the mother tongue languages by percentage in the top 20 neighbourhoods. It's no surprise that English is the highest percentage, where just under 50% have English as their mother tongue. The second native language that is most spoken by percentage in the top 20 neighbourhoods with highest auto-theft count is Italic languages, which includes languages such as Italian, Portuguese, and Spanish. These languages collectively account for approximately 13% of the population in these neighborhoods. Following this, Sino-Tibetan languages, which include Mandarin and Cantonese, account for approximately 8% of the population. While this data does not establish a direct link between language demographics and auto-theft rates, it highlights the diverse linguistic landscape of these high-incident neighborhoods. Further analysis incorporating socioeconomic factors, population density, and law enforcement presence could provide deeper insights into potential correlations. 
+
+
+Now, analyzing the ages in the top five neighbourhoods with the most auto thefts: 
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+total_auto_theft <- auto_theft_census |>
+  group_by(NEIGHBOURHOOD_140) |>
+  summarise(Total_Auto_Theft = n()) |>
+  arrange(desc(Total_Auto_Theft))
+
+top_5_neighborhoods <- total_auto_theft |>
+  top_n(5, Total_Auto_Theft) |>
+  pull(NEIGHBOURHOOD_140)
+
+top_5_data <- auto_theft_census |>
+  filter(NEIGHBOURHOOD_140 %in% top_5_neighborhoods)
+
+top_5_age_data <- top_5_data |>
+  group_by(NEIGHBOURHOOD_140, REPORT_YEAR) |>
+  summarise(
+    Total_Population = sum(`0 to 14 years` + `15 to 24 years` + `25 to 54 years` + `55 to 64 years` + `65 years and over`, na.rm = TRUE),
+    Percent_0_14 = sum(`0 to 14 years`, na.rm = TRUE) / Total_Population * 100,
+    Percent_15_24 = sum(`15 to 24 years`, na.rm = TRUE) / Total_Population * 100,
+    Percent_25_54 = sum(`25 to 54 years`, na.rm = TRUE) / Total_Population * 100,
+    Percent_55_64 = sum(`55 to 64 years`, na.rm = TRUE) / Total_Population * 100,
+    Percent_65_Plus = sum(`65 years and over`, na.rm = TRUE) / Total_Population * 100
+  ) |>
+  ungroup()
+
+top_testing_summary <- top_5_data |>
+  group_by(NEIGHBOURHOOD_140, REPORT_YEAR) |>
+  summarise(
+    Total_Auto_Theft = n(),
+    Avg_Income = mean(`Average total income`, na.rm = TRUE)
+  ) |>
+  ungroup()
+
+top_5_combined <- top_testing_summary |>
+  left_join(top_5_age_data, by = c("NEIGHBOURHOOD_140", "REPORT_YEAR"))
+
+age_distribution_long <- top_5_combined |>
+  pivot_longer(
+    cols = starts_with("Percent_"),
+    names_to = "Age_Group",
+    values_to = "Percentage"
+  )
+
+ggplot(age_distribution_long, aes(x = NEIGHBOURHOOD_140, y = Percentage, fill = Age_Group)) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_wrap(~ REPORT_YEAR) +
+  labs(
+    title = "Age Distribution in Top 5 Auto Theft Neighborhoods",
+    x = "Neighborhood",
+    y = "Percentage of Population",
+    fill = "Age Group",
+    caption = "Figure 10: Stacked Bar Depicting Age Distribution in Top 5 Auto Theft Neighbourhoods"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 5), 
+    plot.title = element_text(hjust = 0.5, size = 14),  # Larger title
+    plot.caption = element_text(hjust = 0.5, face = "italic", size = 10)
+  ) 
+
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+correlation_age <- top_5_combined |>
+  summarise(
+    Corr_0_14 = cor(Total_Auto_Theft, Percent_0_14, use = "complete.obs"),
+    Corr_15_24 = cor(Total_Auto_Theft, Percent_15_24, use = "complete.obs"),
+    Corr_25_54 = cor(Total_Auto_Theft, Percent_25_54, use = "complete.obs"),
+    Corr_55_64 = cor(Total_Auto_Theft, Percent_55_64, use = "complete.obs"),
+    Corr_65_Plus = cor(Total_Auto_Theft, Percent_65_Plus, use = "complete.obs")
+  )
+
+kable(
+  correlation_age, 
+  caption = "Table 6: Correlation Between Auto Theft and Age Groups",
+  caption.placement = "top", 
+  caption.bold = TRUE         
+) |>
+  kable_styling(
+    "striped", 
+    full_width = FALSE, 
+    position = "center"
+  ) |>
+  add_header_above(c(" " = ncol(auto_theft_summary)), bold = TRUE, color = "blue") |>
+  row_spec(0, bold = TRUE, color = "white", background = "#4C4C4C")  # Style the header row
+```
+
+*Figure 10* and *Table 6* illustrate the age distributions across the neighborhoods. The correlation data in the table reveals how different age groups relate to auto theft incidents. Specifically, there is a negative correlation of -0.58 between auto theft incidents and the age group of 0-14, suggesting that neighborhoods with higher proportions of children tend to have fewer auto thefts. This might indicate that younger populations are not typically associated with such criminal activities.
+
+Conversely, the correlation with the 15-24 age group is 0.27, reflecting a weak positive relationship. This indicates that neighborhoods with a higher percentage of individuals in this age range tend to see a slight increase in auto theft incidents. I believe these numbers reflect the fact that this is the age group where many individuals begin driving, and hence, potentially leading to more thefts in areas with a higher proportion of young drivers. The correlation for the 25-54 age group is relatively low at 0.07, suggesting minimal association between auto thefts and this group.
+
+Interestingly, the correlation with the 55-64 age group is slightly stronger at 0.27, though still weak, indicating a mild positive trend. This could indicate that, in these areas, the types of vehicles owned or the frequency of car ownership might make them more susceptible to theft. 
+
+Finally, there is a negative correlation of -0.06 with the 65+ age group, implying that neighborhoods with higher proportions of elderly populations tend to experience fewer auto thefts, but the relationship is not significant.
+
+This data suggests that age distributions *do* play a role in auto theft trends. Although the correlations are generally weak, and other factors likely influence the occurrence of auto thefts more significantly, understanding the relationship with age groups still offers valuable context for further investigation.
+
+
+# Summary 
+My analysis from the preliminary results  investigates trends of auto theft in Toronto and their potential relations with socio-economic factors. The comparison between the 2015 and 2020 census data revealed that there was a significant increase in auto theft incidents, rising from 3,244 cases in 2015 to 4,873 in 2020. While individual after-tax income remained stable, household after-tax income saw a notable increase, suggesting improvements in overall economic well-being. However, unemployment surged from 8.62% to 14.55%, likely influenced by the COVID-19 pandemic, while low-income prevalence declined. 
+
+Further analysis showed that neighborhoods with lower individual income levels tend to experience higher auto theft rates, as seen in West Humber-Clairville. My analysis revealed that West Humber-Clairville had the highest number of auto thefts in both years, and bar plots showed that its average income was aligned with lower-income neighbourhoods. Plus, box plots of income brackets further solidified this relationship, since there was greater variability in theft incidents among lower-income neighborhoods. It is important to note, however, that higher-income areas have fewer data points, which may affect the results.
+
+Next, my correlation analysis showed a weak negative relationship between employment rates and auto thefts, and a weak positive relationship between unemployment and thefts. This indicates that higher employment rates may be slightly associated with fewer auto thefts, while higher unemployment rates may be linked to a slight increase in auto theft incidents. However, the strength of these relationships is weak, suggesting that other factors may also play a significant role.
+
+My analysis also explored social factors, including language and age demographics. I found that the most common mother tongues in high auto theft neighborhoods were English (just under 50% - though this was expected), followed by Italic languages (14%), which include Italian, Portuguese, and Spanish. Sino-Tibetan languages was close behind, accounting for around 8% in the neighbourhoods with the most auto thefts. In addition to language, age group correlations were examined, revealing that neighborhoods with a higher percentage of children (0 to 14 years) tended to have fewer thefts. Conversely, areas with a higher percentage of individuals ages 15 to 24 and 55 to 64-year-olds showed a weak positive relationship with auto theft, suggesting that age demographics may have an impact on theft patterns.
+
+Overall, the preliminary results indicate that economic conditions (like individual average income in neighbourhoods), employment and unemployment rates, and age demographics, may influence auto theft trends. However, further modeling and additional factors need to be explored to confirm these relationships.
+
+To be able to confirm these relationships, my plan for the final project is to leverage high-performance computing, machine learning, and interactive visualizations. I plan to try and find some more data for analysis, like other socio-economic factors, such as education levels, housing affordability, and crime rates for other offenses, to better understand their relationship with auto theft. 
+
+Thus, for HPC, I plan on using parallel computing to efficiently process large datasets, including auto theft reports and socio-economic indicators, by leveraging multi-core processing and distributed computing techniques. This will allow for faster data manipulation, modeling, and visualization, enabling a more comprehensive analysis of trends and correlations.
+
+For ML analysis, I plan to Train Decision Trees, Random Forest, and XGBoost, comparing the output of these three models, and attempt to predict auto theft rates based on socio-economic features like, average income, unemployment rate, education level. 
+
+Finally, I plan on developing better geospatial heatmaps to visualize auto theft hotspots and their correlation with socio-economic factors. I also plan on implementing some interactive dashboards to be able to explore trends dynamically.
+
+With the help of these techniques and interpretable ML models, this guarantees a data-driven investigation of the relationship between socio-economic factors and auto theft rates.
+
+
+
+# References 
+
+Auto theft open data is sourced from the [Toronto Police Service Public Safety Data Portal](https://data.torontopolice.on.ca/datasets/TorontoPS::auto-theft-open-data/about) (2025, January 22).  
+
+The "Battle of the Neighborhood" analysis is available on [Kaggle](https://www.kaggle.com/code/servietsky/battle-of-the-neighborhood/notebook) (Gasmi, 2019).  
+
+The [Neighbourhood Profiles Dataset](https://open.toronto.ca/dataset/neighbourhood-profiles/) is sourced from the City of Toronto Open Data Portal (2024, April).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
