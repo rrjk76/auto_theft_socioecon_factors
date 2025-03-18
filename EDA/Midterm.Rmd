@@ -2,8 +2,7 @@
 title: "Exploring the Socio-Economic Factors of Auto Theft in Toronto"
 author: "Rebecca Kong"
 date: '`r format(Sys.Date(), "%B %d, %Y")`'
-output: github_document
-always_allow_html: yes
+output: html_document
 
  
 ---
