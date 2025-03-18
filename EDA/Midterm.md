@@ -3,19 +3,6 @@ Exploring the Socio-Economic Factors of Auto Theft in Toronto
 Rebecca Kong
 March 17, 2025
 
-``` r
-# writing to csv for easier access later (if everything is wiped out in the R environment)
-# census_2021_cleaned <- data.frame(census_2021_cleaned, check.names = FALSE)
-# write.csv(data/census_2021_cleaned, "census_2021_cleaned.csv", row.names = FALSE)
-
-# census_2016_cleaned <- data.frame(census_2016_cleaned, check.names = FALSE)
-# write.csv(data/census_2016_cleaned, "census_2016_cleaned.csv", row.names = FALSE)
-
-# reading in in case it is needed: 
-# census_2016_cleaned <- read.csv("data/census_2016_cleaned.csv", check.names = FALSE)
-# census_2021_cleaned <- read.csv("data/census_2020_cleaned.csv", check.names = FALSE)
-```
-
 Github Link: <https://github.com/rrjk76/auto_theft_socioecon_factors>
 
 # Introduction
@@ -116,14 +103,6 @@ census data. Plus, since there are over 2000 columns/attributes for both
 the 2016 and 2021 census datasets, I used the `select` function to
 choose only the key variables to keep for my analysis. *Table 2*
 outlines some of the important attributes I kept in each census dataset.
-
-``` r
- census_2016_cleaned |>
-  select(1:15) |>  
-  head(6) |>  
-  kable(caption = " Table 2: Sample Output of Data Showing Some Key Variables") |>
-  kable_styling(full_width = TRUE)
-```
 
 Because the names of the two datasets were inconsistent, I used the
 `rename()` function to simplify the names and ensure consistency for row
