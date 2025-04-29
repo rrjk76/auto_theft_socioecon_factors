@@ -40,7 +40,7 @@ Toronto, Canada's largest city, frequently reports cases of vehicle theft, often
 
 Thus, the goal of this analysis is to explore the relationship between auto theft rates in Toronto and various socioeconomic factors, seeking to understand the question: __Do certain socioeconomic conditions serve as indicators for higher rates of vehicle-related crime?__
 
-Furthermore, this analysis explores which modelling approach, like decision trees, generalized additive models (GAMs), linear regression, or boosting methods (like XGboost), best captures the relationship between socioeconomic conditions and auto theft rates.
+Furthermore, this analysis explores which modelling approach, like decision trees, linear regression, or boosting methods (like XGboost), best captures the relationship between socioeconomic conditions and auto theft rates.
 
 ## Data Sources
 To explore the relationship between auto theft and socioeconomic factors in Toronto, this analysis utilizes census datasets from the [Toronto Open Data Neighbourhood Profiles](https://open.toronto.ca/dataset/neighbourhood-profiles/).
