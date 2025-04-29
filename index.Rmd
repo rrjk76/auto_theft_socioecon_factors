@@ -1,0 +1,37 @@
+---
+title: "Exploring the Socio-Economic Factors of Auto Theft"
+author: "Rebecca Kong"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+---
+
+```{r, warning = FALSE, message = FALSE, include=FALSE}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(glue)
+library(stringr)
+library(tibble)
+library(opendatatoronto)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(ggcorrplot)
+library(wordcloud)
+library(RColorBrewer)
+library(tidyr)
+```
+
+# Background and Motivation 
+Auto theft is a prominent concern in urban environments, and the City of Toronto is no exception. Beyond being a property crime, auto theft is often intertwined to broader criminal activity, including organized crime, fraud, and illicit resale markets. For vehicle owners, the theft of a car can be more than just an inconvenience: it can disrupt their daily lives, limit access to work and essential services, and cause heavy financial strain due to insurance claims, replacement costs, and legal processes. From a more comprehensive perspective, high auto theft rates may indicate deeper socio-economic issues, such as income inequality, unemployment, or systemic vulnerabilities within certain neighbourhoods. 
+
+## Research Question
+Toronto, as Canada's largest city, frequently reports cases of vehicle theft, often covered in the media. However, beyond simply the headlines, an important question that arises: are there identifiable patterns or relationships between auto theft rates in Toronto and socio-economic factors? Do economic conditions—such as an individual's income, household income, type of living area (e.g., apartment buildings over five storeys, under five storeys, duplexes, townhouses, single-detached homes, semi-detached homes), languages spoken in the neighbourhood, or employment levels—correspond to higher rates of vehicle-related crime?
+
+Thus, the goal of this analysis is to explore the relationship between auto theft rates in Toronto and various socio-economic factors, seeking to understand the question: Do certain socio-economic conditions serve as indicators for higher rates of vehicle-related crime?.
+
+Furthermore, this analysis explores which modeling approach, like decision trees, generalized additive models (GAMs), linear regression, or boosting methods (like XGboost), best captures the relationship between socio-economic conditions and auto theft rates.
+
+

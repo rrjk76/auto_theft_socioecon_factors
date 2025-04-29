@@ -1,0 +1,22 @@
+---
+title: "Exploring the Socio-Economic Factors of Auto Theft in Toronto"
+author: "Rebecca Kong"
+output: html_document
+---
+
+```{r setup, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(glue)
+library(stringr)
+library(tibble)
+library(opendatatoronto)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(ggcorrplot)
+library(wordcloud)
+library(RColorBrewer)
+library(tidyr)
+```

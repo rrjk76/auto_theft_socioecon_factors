@@ -1,0 +1,516 @@
+---
+title: "Interactive Visualizations"
+output: 
+    html_document:
+        toc: TRUE
+        toc_float: TRUE
+---
+
+```{r setup, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(glue)
+library(stringr)
+library(tibble)
+library(opendatatoronto)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(ggcorrplot)
+library(wordcloud)
+library(RColorBrewer)
+library(tidyr)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(gbm)
+library(xgboost)
+library(caret)
+library(mgcv)
+library(plotly)
+library(webshot2)
+library(leaflet)
+```
+
+
+```{r, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
+hd2021_census <- read.csv("Data_Wrangling/hd2021_census.csv", check.names = FALSE)
+census_data <- read.csv("data/census_data.csv", check.names = FALSE)
+auto_theft_census <- read.csv("data/auto_theft_census.csv", check.names = FALSE )
+```
+
+```{r, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
+set.seed(1250)
+train <- sample(1:nrow(auto_theft_census), round(0.7 * nrow(auto_theft_census)))
+train_data <- auto_theft_census[train, ]
+test_data <- auto_theft_census[-train, ]
+```
+
+
+<br>
+
+## Figure A (Leaflet): 
+```{r figure1, message=FALSE, echo=FALSE, warning=FALSE}
+neighbourhood_summary <- train_data |>
+  filter(!is.na(NEIGHBOURHOOD_140)) |>
+  group_by(NEIGHBOURHOOD_140) |>
+  summarize(Total_Auto_Theft = n(), .groups = "drop")
+
+neighborhood_locations <- train_data |>
+  filter(!is.na(NEIGHBOURHOOD_140) & !is.na(LAT_WGS84) & !is.na(LONG_WGS84)) |>
+  group_by(NEIGHBOURHOOD_140) |>
+  summarize(lat = mean(LAT_WGS84), lon = mean(LONG_WGS84), .groups = "drop")
+
+crime_map_data <- left_join(neighbourhood_summary, neighborhood_locations, by = "NEIGHBOURHOOD_140")
+
+pal = colorNumeric(palette = rev(viridis::magma(256)), domain = crime_map_data$Total_Auto_Theft)
+
+leaflet(crime_map_data) |>
+  addTiles() |>  
+  addCircleMarkers(
+    ~lon, ~lat, 
+    radius = ~sqrt(Total_Auto_Theft) * 2, 
+    color = ~pal(Total_Auto_Theft),
+    fillColor = ~pal(Total_Auto_Theft),
+    fillOpacity = 1.0,
+    popup = ~paste0("<b>Neighborhood: </b>", NEIGHBOURHOOD_140, "<br>",
+                    "<b>Total Crimes: </b>", Total_Auto_Theft)
+  ) |>
+  addLegend(
+    position = "bottomright",
+    pal = pal,
+    values = crime_map_data$Total_Auto_Theft,
+    title = "Crime Count",
+    labels = "Higher crimes → Bigger circles"
+  ) 
+```
+
+
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+train_data <- train_data |>
+  group_by(REPORT_YEAR, `Neighbourhood Name`) |>
+  mutate(Total_Auto_Thefts = n()) |>
+  ungroup()  
+```
+
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+# Get the top 20 neighbourhoods by total auto theft incidents
+top_neighbourhoods <- train_data |>
+  group_by(`Neighbourhood Name`) |>
+  summarise(total_incidents = sum(Total_Auto_Thefts, na.rm = TRUE)) |>
+  arrange(desc(total_incidents)) |>
+  head(20) |>
+  pull(`Neighbourhood Name`)
+
+# Filter data for only the top 20 neighbourhoods
+top_20_neighbourhoods <- train_data |>
+  filter(`Neighbourhood Name` %in% top_neighbourhoods)
+
+top_20_summary <- top_20_neighbourhoods |>
+  group_by(`Neighbourhood Name`, REPORT_YEAR) |>
+  summarise(Incidents = n(), .groups = "drop")
+```
+
+## Figure B (Double Bar Graph)
+```{r figure2, message=FALSE, echo=FALSE, warning=FALSE}
+plot_ly(
+  data = top_20_summary,
+  x = ~Incidents,
+  y = ~`Neighbourhood Name`,
+  color = ~factor(REPORT_YEAR),
+  colors = c("lightblue", "lightgreen"),
+  type = "bar",
+  orientation = "h"
+) |>
+  layout(
+    title = "Top 20 Neighbourhoods with Highest Auto Theft Incidents",
+    xaxis = list(title = "Number of Incidents"),
+    yaxis = list(title = "Neighbourhood"),
+    barmode = "group",
+    legend = list(title = list(text = "Year")),
+    margin = list(l = 100), # add left margin so neighbourhood names fit
+    annotations = list(
+      list(
+        text = "Double Bar Graph of the Top 20 Neighbourhoods",
+        xref = "paper", yref = "paper",
+        x = 0.5, y = -0.2, showarrow = FALSE,
+        font = list(size = 10, style = "italic")
+      )
+    )
+  )
+```
+
+
+
+## Income Extremes {.tabset}
+
+### Figure C - Income Extremes in 2015
+```{r figure3, message=FALSE, echo=FALSE, warning=FALSE}
+income_extremes_2015 <- train_data |>
+  filter(REPORT_YEAR == 2015) |>
+  distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |>
+  arrange(`Average total income`) |>
+  slice_head(n = 5) |>
+  mutate(Category = "Lowest") |>  
+  bind_rows(
+    train_data |>
+      filter(REPORT_YEAR == 2015) |>
+      distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |>
+      arrange(desc(`Average total income`)) |>
+      slice_head(n = 5) |> 
+      mutate(Category = "Highest") 
+  ) |>
+  bind_rows(
+    train_data |>
+      filter(REPORT_YEAR == 2015 & `Neighbourhood Name` == "West Humber-Clairville") |>
+      distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |> 
+      mutate(Category = "West Humber-Clairville") 
+  )
+
+options(scipen=999)
+
+ggplot_income_plot <- ggplot(income_extremes_2015, aes(x = reorder(NEIGHBOURHOOD_140, -`Average total income`), 
+                                                      y = `Average total income`, fill = Category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Neighborhoods with Highest & Lowest Average Income (2015)",
+    x = "Neighborhood",
+    y = "Average Household Income",
+    fill = "Category",
+    caption = "Flipped bar plot depicting income extremes in 2015"
+  ) +
+  scale_fill_manual(values = c("Highest" = "steelblue", "Lowest" = "red", "West Humber-Clairville" = "orange")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 11),  
+    plot.caption = element_text(hjust = 0.5, face = "italic"),  
+    legend.position = "bottom"
+  ) +
+  coord_flip()
+
+ggplotly(ggplot_income_plot)
+```
+
+### Figure D - Income Extremes in 2020
+```{r figure4, message=FALSE, echo=FALSE, warning=FALSE}
+income_extremes_2020 <- train_data |>
+  filter(REPORT_YEAR == 2020) |>
+  distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |>
+  arrange(`Average total income`) |>
+  slice_head(n = 5) |>
+  mutate(Category = "Lowest") |>  
+  bind_rows(
+    train_data |>
+      filter(REPORT_YEAR == 2020) |>
+      distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |>
+      arrange(desc(`Average after-tax income of household`)) |>
+      slice_head(n = 5) |> 
+      mutate(Category = "Highest")  
+  ) |>
+  bind_rows(
+    train_data |>
+      filter(REPORT_YEAR == 2020 & `Neighbourhood Name` == "West Humber-Clairville") |>
+      distinct(NEIGHBOURHOOD_140, .keep_all = TRUE) |> 
+      mutate(Category = "West Humber-Clairville")  
+  )
+
+ggplot_income_plot <- ggplot(income_extremes_2020, aes(x = reorder(NEIGHBOURHOOD_140, -`Average total income`), 
+                                 y = `Average total income`, fill = Category)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Neighborhoods with Highest & Lowest Average Income (2020)",
+    x = "Neighborhood",
+    y = "Average Household Income",
+    fill = "Category",
+    caption = "Flipped bar plot dipicting income extremes in 2020"
+  ) +
+  scale_fill_manual(values = c("Highest" = "steelblue", "Lowest" = "red", "West Humber-Clairville" = "orange")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 11),  
+    plot.caption = element_text(hjust = 0.5, face = "italic"),  
+    legend.position = "bottom"
+) +
+  coord_flip()
+
+ggplotly(ggplot_income_plot)
+```
+
+
+## Figure E - Boxplots
+```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+options(scipen=999)
+
+income_breaks <- c(0, 30000, 75000, 110000, 175000, 300000)
+income_labels <- c(
+  "<$30k", 
+  "$30k-$75k", 
+  "$75k-$110k", 
+  "$110k-$170k", 
+  "$170k-$300k"
+)
+
+train_data <- train_data |>
+  mutate(Income_Bracket = cut(`Average total income`, 
+                             breaks = income_breaks,
+                             labels = income_labels,
+                             include.lowest = TRUE))
+
+
+plot_ly(
+  data = train_data,
+  x = ~Income_Bracket,
+  y = ~Total_Auto_Thefts,
+  color = ~factor(REPORT_YEAR),
+  colors = c("lightpink", "lightgreen"),
+  type = "box",
+  boxpoints = "outliers"
+) |>
+  layout(
+    title = "Auto Theft Incidents Across Income Groups",
+    xaxis = list(
+      title = "Income Brackets",
+      tickformat = ",d",
+      tickangle = 45,
+      separatethousands = TRUE,  
+      exponentformat = "none",
+      caption = "    "
+    ),
+    yaxis = list(
+      title = "Total Auto Thefts",
+      tickformat = ",d",
+      separatethousands = TRUE,  
+      exponentformat = "none"
+    ),
+    legend = list(title = list(text = "Year")),
+    margin = list(b = 100), 
+    annotations = list(
+      list(
+        text = "      ",
+        xref = "paper", yref = "paper",
+        x = 0.5, y = -0.25, showarrow = FALSE,
+        font = list(size = 10, style = "italic")
+      )
+    )
+  )
+```
+
+
+## Figure F - Interactive Age Plots
+```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+total_auto_theft <- train_data |>
+  group_by(NEIGHBOURHOOD_140) |>
+  summarise(Total_Auto_Theft = n()) |>
+  arrange(desc(Total_Auto_Theft))
+
+top_5_neighborhoods <- total_auto_theft |>
+  top_n(5, Total_Auto_Theft) |>
+  pull(NEIGHBOURHOOD_140)
+
+top_5_data <- train_data |>
+  filter(NEIGHBOURHOOD_140 %in% top_5_neighborhoods)
+
+top_5_age_data <- top_5_data |>
+  group_by(NEIGHBOURHOOD_140, REPORT_YEAR) |>
+  summarise(
+    Total_Population = sum(`0 to 14 years` + `15 to 24 years` + `25 to 54 years` + `55 to 64 years` + `65 years and over`, na.rm = TRUE),
+    Percent_0_14 = sum(`0 to 14 years`, na.rm = TRUE) / Total_Population * 100,
+    Percent_15_24 = sum(`15 to 24 years`, na.rm = TRUE) / Total_Population * 100,
+    Percent_25_54 = sum(`25 to 54 years`, na.rm = TRUE) / Total_Population * 100,
+    Percent_55_64 = sum(`55 to 64 years`, na.rm = TRUE) / Total_Population * 100,
+    Percent_65_Plus = sum(`65 years and over`, na.rm = TRUE) / Total_Population * 100
+  ) |>
+  ungroup()
+
+top_testing_summary <- top_5_data |>
+  group_by(NEIGHBOURHOOD_140, REPORT_YEAR) |>
+  summarise(
+    Total_Auto_Theft = n(),
+    Avg_Income = mean(`Average total income`, na.rm = TRUE)
+  ) |>
+  ungroup()
+
+top_5_combined <- top_testing_summary |>
+  left_join(top_5_age_data, by = c("NEIGHBOURHOOD_140", "REPORT_YEAR"))
+
+age_distribution_long <- top_5_combined |>
+  pivot_longer(
+    cols = starts_with("Percent_"),
+    names_to = "Age_Group",
+    values_to = "Percentage"
+  )
+
+plot_ly(age_distribution_long, 
+        x = ~NEIGHBOURHOOD_140, 
+        y = ~Percentage, 
+        color = ~Age_Group, 
+        type = 'scatter', 
+        mode = 'lines+markers', 
+        text = ~paste0(Age_Group, ": ", round(Percentage, 1), "%"),
+        hoverinfo = 'text',
+        frame = ~REPORT_YEAR) %>%
+  layout(
+    title = "Age Group Trends in Top 5 Auto Theft Neighborhoods by Year",
+    xaxis = list(title = "Neighborhood"),
+    yaxis = list(title = "Percentage"),
+    updatemenus = list(
+      list(
+        type = "buttons",
+        buttons = list(
+          list(label = "Play", method = "animate", args = list(NULL)),
+          list(label = "Pause", method = "animate", args = list(NULL, list(frame = list(duration = 0, redraw = FALSE))))
+        )
+      )
+    )
+  )
+```
+
+
+
+
+## Housing Plots {.tabset}
+
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+plot_data <- train_data |>
+  group_by(REPORT_YEAR, `Neighbourhood Name`) |>
+  select(REPORT_YEAR, `Neighbourhood Name`, `Total_Auto_Thefts`, 
+         `Single-detached house`, `Semi-detached house`, `Row house`,
+         `Duplex Apt`, `Lowrise Apt`, `Highrise Apt`) |>
+  pivot_longer(cols = 4:9, names_to = "Housing_Type", values_to = "Housing_Count")
+
+housing_types <- unique(plot_data$Housing_Type)
+```
+
+### G1 - Single Detatched
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+single_detached_plot <- plot_ly(
+  data = filter(plot_data, Housing_Type == "Single-detached house"),
+  x = ~Housing_Count,
+  y = ~Total_Auto_Thefts,
+  color = ~`Neighbourhood Name`,
+  colors = "Set1",
+  text = ~paste(
+    "Neighborhood:", `Neighbourhood Name`,
+    "<br>Count:", Housing_Count,
+    "<br>Thefts:", Total_Auto_Thefts,
+    "<br>Year:", REPORT_YEAR
+  ),
+  type = "scatter",
+  mode = "markers",
+  marker = list(size = 10, opacity = 0.7)
+) %>%
+  layout(
+    title = "Single-Detached Homes vs Auto Thefts by Neighborhood",
+    xaxis = list(title = "Number of Housing Units"),
+    yaxis = list(title = "Number of Auto Thefts"),
+    hoverlabel = list(align = "left")
+  )
+single_detached_plot
+```
+
+### G2 - Semi-Detatched 
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+semi_detached_plot <- plot_ly(
+  data = filter(plot_data, Housing_Type == "Semi-detached house"),
+  x = ~Housing_Count,
+  y = ~Total_Auto_Thefts,
+  color = ~`Neighbourhood Name`,
+  colors = "Set2",
+  type = "scatter",
+  mode = "markers"
+) %>%
+  layout(
+    title = "Semi-Detached Homes vs Auto Thefts by Neighborhood",
+    xaxis = list(title = "Number of Housing Units"),
+    yaxis = list(title = "Number of Auto Thefts")
+  )
+semi_detached_plot
+```
+
+
+### G3 - Row House 
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+row_house_plot <- plot_ly(
+  data = filter(plot_data, Housing_Type == "Row house"),
+  x = ~Housing_Count,
+  y = ~Total_Auto_Thefts,
+  color = ~`Neighbourhood Name`,
+  colors = "Set3",
+  type = "scatter",
+  mode = "markers"
+) %>%
+  layout(
+    title = "Row Houses vs Auto Thefts by Neighborhood",
+    xaxis = list(title = "Number of Housing Units"),
+    yaxis = list(title = "Number of Auto Thefts")
+  )
+row_house_plot
+```
+
+
+### G4 - Duplex Apt  
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+duplex_plot <- plot_ly(
+  data = filter(plot_data, Housing_Type == "Duplex Apt"),
+  x = ~Housing_Count,
+  y = ~Total_Auto_Thefts,
+  color = ~`Neighbourhood Name`,
+  colors = "Set2",
+  type = "scatter",
+  mode = "markers"
+) %>%
+  layout(
+    title = "Duplex Apartment vs Auto Thefts by Neighborhood",
+    xaxis = list(title = "Number of Housing Units"),
+    yaxis = list(title = "Number of Auto Thefts")
+  )
+duplex_plot
+```
+
+### G5 - Lowrise Apt  
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+lowrise_plot <- plot_ly(
+  data = filter(plot_data, Housing_Type == "Lowrise Apt"),
+  x = ~Housing_Count,
+  y = ~Total_Auto_Thefts,
+  color = ~`Neighbourhood Name`,
+  colors = "Set3",
+  type = "scatter",
+  mode = "markers"
+) %>%
+  layout(
+    title = "Lowrise Apartment vs Auto Thefts by Neighborhood",
+    xaxis = list(title = "Number of Housing Units"),
+    yaxis = list(title = "Number of Auto Thefts")
+  )
+lowrise_plot
+```
+
+### G5 - Highrise Apt  
+```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+highrise_plot <- plot_ly(
+  data = filter(plot_data, Housing_Type == "Highrise Apt"),
+  x = ~Housing_Count,
+  y = ~Total_Auto_Thefts,
+  color = ~`Neighbourhood Name`,
+  colors = "Set1",
+  type = "scatter",
+  mode = "markers"
+) %>%
+  layout(
+    title = "Highrise Apartment vs Auto Thefts by Neighborhood",
+    xaxis = list(title = "Number of Housing Units"),
+    yaxis = list(title = "Number of Auto Thefts")
+  )
+lowrise_plot
+```
+
+
+
+
+
+
+
