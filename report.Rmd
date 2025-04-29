@@ -1,6 +1,5 @@
 ---
-title: "Exploring the Socio-Economic Factors of Auto Theft in Toronto"
-author: "Rebecca Kong"
+title: "Access the Full Report"
 output: html_document
 ---
 
@@ -20,3 +19,10 @@ library(wordcloud)
 library(RColorBrewer)
 library(tidyr)
 ```
+
+You can access the report here: https://github.com/rrjk76/auto_theft_socioecon_factors/blob/main/Final-Report.pdf
+
+or by clicking this button: 
+
+[Download PDF Report](Final-Report.pdf){.btn .btn-primary}
+
