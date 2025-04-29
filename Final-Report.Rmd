@@ -1,5 +1,5 @@
 ---
-title: "Exploring the socioeconomic Factors of Auto Theft in Toronto"
+title: "Exploring the Socioeconomic Factors of Auto Theft in Toronto"
 author: "Rebecca Kong"
 date: "April 30, 2025"
 output: 
