@@ -156,7 +156,20 @@ For the regression models, they are compared using:
 * RMSE (Root Mean Squared Error): RMSE is a measure of the differences between predicted and actual values. Lower RMSE values indicate better model performance.
 
 
-# Results
+# Result Summary
+
+* Economic factors were strongly linked to auto theft, as lower-income neighbourhoods like West Humber-Clairville had higher theft rates, with rising unemployment (rising from 8.6% in 2015 to 14.6% in 2020) correlating positively with incidents (r = 0.23).
+
+* There were however some income variability, as greater theft variation was seen in lower-income areas, though low-income prevalence oddly had a negative correlation (r = -0.24). This is a limitation, and it is possibly due to underreporting in low-income communities where there may be distrust in law enforcement, or confounding factors.
+
+* Age influenced theft modestly, as neighbourhoods with more children (ages 0–14) had fewer thefts (r = -0.60), while those with more youth (ages 15–24) saw slightly more (r = +0.26).
+
+* Housing types weren’t predictive, because there was no consistent link between housing structures (e.g., duplexes, high-rises) and theft rates was found.
+
+* Model performance varied: GBM led **classification** (64% accuracy), while Decision Trees had the highest **regression** $R^2$ (0.80); Linear Regression also performed well ($R^2$ of 0.75-0.76) but had the highest RMSE value.
+
+* For variable importance,unemployment consistently ranked as top predictor. Across all models, unemployment stood out, while ensemble methods also highlighted language and housing features as key predictors.
+
 
 To see results and a more detailed analysis, please [download the full PDF report here](Final-Report.pdf), or go to [*this tab*](report.html) and download it there.
 
