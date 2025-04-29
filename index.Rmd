@@ -1,5 +1,5 @@
 ---
-title: "Exploring the Socio-Economic Factors of Auto Theft"
+title: "Exploring the Socioeconomic Factors of Auto Theft"
 author: "Rebecca Kong"
 output: 
     html_document:
@@ -24,14 +24,158 @@ library(RColorBrewer)
 library(tidyr)
 ```
 
+```{r, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
+hd2021_census <- read.csv("Data_Wrangling/hd2021_census.csv", check.names = FALSE)
+census_data <- read.csv("data/census_data.csv", check.names = FALSE)
+auto_theft_census <- read.csv("data/auto_theft_census.csv", check.names = FALSE )
+```
+
 # Background and Motivation 
-Auto theft is a prominent concern in urban environments, and the City of Toronto is no exception. Beyond being a property crime, auto theft is often intertwined to broader criminal activity, including organized crime, fraud, and illicit resale markets. For vehicle owners, the theft of a car can be more than just an inconvenience: it can disrupt their daily lives, limit access to work and essential services, and cause heavy financial strain due to insurance claims, replacement costs, and legal processes. From a more comprehensive perspective, high auto theft rates may indicate deeper socio-economic issues, such as income inequality, unemployment, or systemic vulnerabilities within certain neighbourhoods. 
+
+## Background 
+Auto theft is a prominent concern in urban environments, and the City of Toronto is no exception. Beyond being a property crime, auto theft is often intertwined to broader criminal activity, including organized crime, fraud, and illicit resale markets. For vehicle owners, the theft of a car can be more than just an inconvenience: it can disrupt their daily lives, limit access to work and essential services, and cause heavy financial strain due to insurance claims, replacement costs, and legal processes. From a more comprehensive perspective, high auto theft rates may indicate deeper socioeconomic issues, such as income inequality, unemployment, or systemic vulnerabilities within certain neighbourhoods. 
 
 ## Research Question
-Toronto, as Canada's largest city, frequently reports cases of vehicle theft, often covered in the media. However, beyond simply the headlines, an important question that arises: are there identifiable patterns or relationships between auto theft rates in Toronto and socio-economic factors? Do economic conditions—such as an individual's income, household income, type of living area (e.g., apartment buildings over five storeys, under five storeys, duplexes, townhouses, single-detached homes, semi-detached homes), languages spoken in the neighbourhood, or employment levels—correspond to higher rates of vehicle-related crime?
+Toronto, Canada's largest city, frequently reports cases of vehicle theft, often covered in the media. However, beyond simply the headlines, an important question arises: are there identifiable patterns or relationships between auto theft rates in Toronto and socioeconomic factors? Do economic conditions, such as an individual's income, household income, type of living area (e.g., apartment buildings over five storeys, under five storeys, duplexes, townhouses, single-detached homes, semi-detached homes), languages spoken in the neighbourhood, or employment levels, correspond to higher rates of vehicle-related crime?
 
-Thus, the goal of this analysis is to explore the relationship between auto theft rates in Toronto and various socio-economic factors, seeking to understand the question: Do certain socio-economic conditions serve as indicators for higher rates of vehicle-related crime?.
+Thus, the goal of this analysis is to explore the relationship between auto theft rates in Toronto and various socioeconomic factors, seeking to understand the question: Do certain socioeconomic conditions serve as indicators for higher rates of vehicle-related crime?
 
-Furthermore, this analysis explores which modeling approach, like decision trees, generalized additive models (GAMs), linear regression, or boosting methods (like XGboost), best captures the relationship between socio-economic conditions and auto theft rates.
+Furthermore, this analysis explores which modelling approach, like decision trees, generalized additive models (GAMs), linear regression, or boosting methods (like XGboost), best captures the relationship between socioeconomic conditions and auto theft rates.
+
+## Data Sources
+To explore the relationship between auto theft and socioeconomic factors in Toronto, this analysis utilizes census datasets from the [Toronto Open Data Neighbourhood Profiles](https://open.toronto.ca/dataset/neighbourhood-profiles/).
+
+Since Canadian census data is collected every five years and released the following year, I have chosen to examine the census data published in 2016 and 2021, which correspond to socioeconomic conditions in 2015 and 2020, respectively. These datasets provide a wealth of information, including demographic characteristics, income levels, employment and unemployment rates, and linguistic diversity, and housing characteristics across Toronto’s neighbourhoods. 
+
+In addition to the census data, this analysis incorporates the [Toronto Police Service Auto Theft Open Data](https://data.torontopolice.on.ca/datasets/TorontoPS::auto-theft-open-data/about), which contains reported incidents of vehicle theft across the city. By integrating these datasets, this study aims to identify potential correlations between socioeconomic conditions and auto theft rates, offering insights into whether certain neighbourhood characteristics may be indicative of higher rates of vehicle-related crimes.
+
+# Methods 
+## Data Acquisition 
+Although the 2021 Neighbourhood Profiles dataset was available for direct download as an XLSX file from the [City of Toronto's Open Data Neighbourhood Profiles](https://open.toronto.ca/dataset/neighbourhood-profiles/), I opted for programmatic access via Toronto’s `CKAN` API instead to ensure reproducibility and scalability. Specifically, I leveraged the R-based API wrapper functions `list_package_resources()` and `get_resource()` from the `CKAN` package. Using these `R` utilities, I first identified all available census resources by querying the "Neighbourhood Profiles" package with the `list_package_resources()` function. This function returned metadata for datasets spanning from 2006 to 2021. From these results, I specifically extracted the 2021 Census profile resource ID using `get_resource()`, obtaining a structured dataset containing 158 socioeconomic variables across Toronto's 140 neighbourhoods, including key indicators like income distribution, demographic breakdowns, housing details, and employment statistics. 
+
+The 2016 Neighbourhood Profiles dataset was acquired slightly differently. Unlike the 2021 dataset, it lacked some crucial socioeconomic indicators. To supplement this missing information, I identified a [Kaggle Notebook](https://www.kaggle.com/code/servietsky/battle-of-the-neighborhood/notebook) that demonstrated an approach for deriving neighbourhood-level income estimates. I cloned and saved the output into a CSV file, which was then imported into R.
+
+Finally, the Auto Theft dataset was downloaded directly as a CSV file. This dataset contained detailed records of reported motor vehicle thefts across the city, with key variables including the date and time of the incident, neighbourhood name, and specific location type (e.g., street, parking lot, residential driveway). 
+
+## Data Cleaning and Wrangling 
+Upon inspecting the 2021 and 2016 census data sets, it became evident that the data was structured in a long format, where neighbourhood names were set as column names, and attributes such as income, age, and employment status were stored as row names, as seen in Table 1:
+```{r, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
+library(DT)
+
+datatable(
+  hd2021_census |> 
+    select(1:100),
+  caption = "Sample of the Unclean 2021 Wide Dataset",
+  options = list(
+    scrollX = TRUE,  
+    scrollY = "300px" 
+  )
+)
+```
+
+So, my data wrangling steps included: 
+
+* Transposing the 2016 and 2021 census datasets from long to wide format, restructuring them for easier analysis (2021: 158 observations, 2,604 attributes; 2016: 140 observations, 2,184 attributes).
+
+* Fixing discrepancies between neighbourhood names/numbers in the 2021 dataset to match the 140 neighbourhood system from 2016.
+
+* Retaining key variables for analysis (e.g., demographics, economic indicators, housing types) and standardized column names using the select() and rename() functions in R.
+
+* Converting all numeric variables in the 2021 dataset to numeric data types for consistency.
+
+* Merging the two cleaned datasets into a unified socioeconomic dataset for both 2015 and 2020, containing 298 observations and 42 attributes.
+
+Table 2 summarizes the merged dataset, highlighting some of the key attributes retained from each census dataset, and shows the result of the data transposition:
+```{r, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
+census_data |>
+  select(`Neighbourhood Name`, `Average total income`, `Low Income Prevalence (LIM-AT) %`, `Unemployment rate`) |> 
+  head(10) |>  
+  kable(caption = "Neighbourhood Income Summary", align = "c") |>
+  kable_styling(font_size = 8,
+    full_width = FALSE
+    ) 
+```
+
+Finally, the combined census dataset was merged with the Auto Theft dataset. I merged them using two key attributes: 
+
+* NEIGHBOURHOOD_140 (to match neighbourhoods across datasets).
+* Year and REPORT_YEAR (to ensure data alignment by year).
+
+The final dataset, `auto_theft_census.csv` has 8402 observations and 71 columns/attributes. These pre-processing steps ensured that the final dataset was structured for further analysis, enabling an investigation into the relationship between socioeconomic factors and auto theft rates across Toronto’s neighbourhoods, as well as a comparison of classification and regression modeling approaches.
+
+## Data Exploration Tools
+After wrangling and cleaning the data, I performed a 70/30 split to create training (70%) and testing (30%) datasets. My exploratory data analysis (EDA) was conducted solely on the training dataset to prevent any bias or influence from the testing set, ensuring that my analysis and model evaluation remained unbiased.
+
+During the EDA, I examined various predictors and explored many potential relationships, particularly focusing on whether socioeconomic factors were associated with the frequency of auto thefts in different neighbourhoods. I tested multiple interactions and examined patterns that might provide insights into these relationships.
+
+Some specific tools include using `ggplot2` for visualizing data through various plots: 
+
+  * Bar plots to compare categorical data 
+  * Scatter plots with regression lines to visualize relationships between predictors and outcomes
+  * Line plots to explore trends over time or other continuous variables
+  * Box-and-whisker plots to examine the distribution and spread of data.
+  
+Each of these plots was used to explore potential correlations and patterns, helping to identify meaningful socioeconomic factors that might influence auto theft rates.
+
+I also used `kable` to create summary statistics, providing a concise view of the key metrics in the data.
+
+Finally, I used `Plotly` and `Leaflet` to create interactive visualizations for my website, enabling dynamic exploration of the data.
+
+## Modelling Methods
+
+**Classification Models:**
+
+The classification models are used to predict auto theft levels, categorized as low, medium, and high.
+
+1. Decision Trees 
+
+2. Gradient Boosting Model (GBM) 
+
+For evaluating classification models, I used:
+
+* Accuracy: the percentage of correctly classified instances.
+
+* Confusion Matrix: a table that provides a detailed breakdown of model performance by showing true positives, true negatives, false positives, and false negatives.
+
+**Regression Models**
+
+The regression models are compared to assess which one serves as a better predictor for auto theft counts (a continuous variable).
+
+1. Decision Trees for Regression
+
+2. Gradient Boosting Machines (GBM)
+
+3. XGBoost
+
+4. Linear Regression (full model including all predictors, and stepwise selection based on the Akaike Information Criterion (AIC) to refine the model)
+
+For the regression models, they are compared using: 
+
+* $R^2$ (Coefficient of Determination): The $R^2$ value measures the proportion of variance in the dependent variable that is predictable from the independent variables. A higher $R^2$ values indicate a better model performance. 
+
+* RMSE (Root Mean Squared Error): RMSE is a measure of the differences between predicted and actual values. Lower RMSE values indicate better model performance.
+
+
+# Results
+
+To see results and a more detailed analysis, please [download the full PDF report here](Final-Report.pdf), or go to [*this tab*](report.html) and download it there.
+
+# References 
+
+\hangindent=0.5in
+\hangafter=1
+Auto theft open data. *Toronto Police Service Public Safety Data Portal*. (2025, January 22).  
+https://data.torontopolice.on.ca/datasets/TorontoPS::auto-theft-open-data/about
+
+\hangindent=0.5in
+\hangafter=1
+Gasmi, M. (2019, November 24). *Battle of the neighborhood*. Kaggle.  
+https://www.kaggle.com/code/servietsky/battle-of-the-neighborhood/notebook
+
+\hangindent=0.5in
+\hangafter=1
+Open data dataset. *City of Toronto Open Data Portal*. (2024, April).  
+https://open.toronto.ca/dataset/neighbourhood-profiles/
+
 
 

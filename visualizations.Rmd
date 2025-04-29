@@ -50,7 +50,8 @@ test_data <- auto_theft_census[-train, ]
 
 <br>
 
-## Figure A (Leaflet): 
+## Auto Theft Neighbourhood Density
+Leaflet map that visualizes the spatial distribution of auto theft incidents across different neighbourhoods in Toronto, providing an interactive way to examine crime density and making it easier to quickly identify areas that may require targeted interventions or additional resources.
 ```{r figure1, message=FALSE, echo=FALSE, warning=FALSE}
 neighbourhood_summary <- train_data |>
   filter(!is.na(NEIGHBOURHOOD_140)) |>
@@ -86,7 +87,7 @@ leaflet(crime_map_data) |>
   ) 
 ```
 
-
+The large black circle represents the area with the most total auto thefts in 2015 and 2020 (West Humber-Clairville), whereas the smaller, light yellow circles represent the neighbourhoods with the least amount of auto thefts. 
 
 ```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 train_data <- train_data |>
@@ -114,7 +115,8 @@ top_20_summary <- top_20_neighbourhoods |>
   summarise(Incidents = n(), .groups = "drop")
 ```
 
-## Figure B (Double Bar Graph)
+## Top 20 Neighbourhoods
+This interactive double bar graph displays the number of auto thefts of the top 20 neighbourhoods with the most reported cases of auto theft, comparing numbers from both 2015 and 2020.
 ```{r figure2, message=FALSE, echo=FALSE, warning=FALSE}
 plot_ly(
   data = top_20_summary,
@@ -143,11 +145,12 @@ plot_ly(
   )
 ```
 
-
+We can see more clearly here which neighbourhoods have the highest number of auto thefts, and we can see visually how the numbers increased from 2015 (blue bar), and 2020 (green bar).  
 
 ## Income Extremes {.tabset}
+The following plots illustrate the highest and lowest average individual incomes, including West Humber-Clairville -  Toronto’s top auto theft hotspot in 2015 and 2020—for comparison, to explore income as a potential confounding factor
 
-### Figure C - Income Extremes in 2015
+### Income Extremes in 2015
 ```{r figure3, message=FALSE, echo=FALSE, warning=FALSE}
 income_extremes_2015 <- train_data |>
   filter(REPORT_YEAR == 2015) |>
@@ -194,7 +197,7 @@ ggplot_income_plot <- ggplot(income_extremes_2015, aes(x = reorder(NEIGHBOURHOOD
 ggplotly(ggplot_income_plot)
 ```
 
-### Figure D - Income Extremes in 2020
+### Income Extremes in 2020
 ```{r figure4, message=FALSE, echo=FALSE, warning=FALSE}
 income_extremes_2020 <- train_data |>
   filter(REPORT_YEAR == 2020) |>
@@ -238,9 +241,11 @@ ggplot_income_plot <- ggplot(income_extremes_2020, aes(x = reorder(NEIGHBOURHOOD
 
 ggplotly(ggplot_income_plot)
 ```
+West Humber-Clairville's average income aligns more closely with lower-income neighbourhoods, many of which, like Black Creek and Agincourt North, also rank high in auto thefts, suggesting a possible link between lower income and higher theft rates.
 
 
-## Figure E - Boxplots
+## Auto Thefts and Income Brackets
+The follow presents a box plot grouping neighbourhoods into five income brackets to explore whether lower average individual income is associated with higher auto theft rates.
 ```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 options(scipen=999)
 
@@ -299,7 +304,9 @@ plot_ly(
 ```
 
 
-## Figure F - Interactive Age Plots
+## Age Distribution
+This plot shows age group trends across the top 5 Toronto neighbourhoods with the most auto thefts, using percentage distributions of each age group by neighbourhood for both 2015 and 2020.
+
 ```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 total_auto_theft <- train_data |>
   group_by(NEIGHBOURHOOD_140) |>
@@ -369,10 +376,13 @@ plot_ly(age_distribution_long,
 ```
 
 
+The plot shows that individuals aged 25–54 consistently make up the largest age group across the top five auto theft neighbourhoods in 2015, suggesting a relatively younger working-age population. Meanwhile, younger ages (0–14 years old) and older (55+ years) age groups represent smaller shares, with slight variation between neighbourhoods in both 2015 and 2020.
 
 
 ## Housing Plots {.tabset}
+The following plots examine various housing types, like duplexes, high-rise buildings (over five storeys), low-rise buildings (under five storeys), semi-detached houses, single-detached houses, and row houses, and how they are distributed across Toronto neighbourhoods. The plots show how their prevalence may relate to auto theft incidents, and these comparisons helps highlight whether certain residential environments are more associated with higher rates of auto theft.
 
+Each point represents one of Toronto’s 140 neighbourhoods, and for each neighbourhood, there are two points: one for data in 2015, and another point for data in 2020. 
 ```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 plot_data <- train_data |>
   group_by(REPORT_YEAR, `Neighbourhood Name`) |>
@@ -384,7 +394,7 @@ plot_data <- train_data |>
 housing_types <- unique(plot_data$Housing_Type)
 ```
 
-### G1 - Single Detatched
+### Single Detatched
 ```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 single_detached_plot <- plot_ly(
   data = filter(plot_data, Housing_Type == "Single-detached house"),
@@ -411,7 +421,7 @@ single_detached_plot <- plot_ly(
 single_detached_plot
 ```
 
-### G2 - Semi-Detatched 
+### Semi-Detatched 
 ```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 semi_detached_plot <- plot_ly(
   data = filter(plot_data, Housing_Type == "Semi-detached house"),
@@ -419,25 +429,38 @@ semi_detached_plot <- plot_ly(
   y = ~Total_Auto_Thefts,
   color = ~`Neighbourhood Name`,
   colors = "Set2",
+  text = ~paste(
+    "Neighborhood:", `Neighbourhood Name`,
+    "<br>Count:", Housing_Count,
+    "<br>Thefts:", Total_Auto_Thefts,
+    "<br>Year:", REPORT_YEAR
+  ),
   type = "scatter",
   mode = "markers"
 ) %>%
   layout(
     title = "Semi-Detached Homes vs Auto Thefts by Neighborhood",
     xaxis = list(title = "Number of Housing Units"),
-    yaxis = list(title = "Number of Auto Thefts")
+    yaxis = list(title = "Number of Auto Thefts"),
+    hoverlabel = list(align = "left")
   )
 semi_detached_plot
 ```
 
 
-### G3 - Row House 
+### Row House 
 ```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 row_house_plot <- plot_ly(
   data = filter(plot_data, Housing_Type == "Row house"),
   x = ~Housing_Count,
   y = ~Total_Auto_Thefts,
   color = ~`Neighbourhood Name`,
+  text = ~paste(
+    "Neighborhood:", `Neighbourhood Name`,
+    "<br>Count:", Housing_Count,
+    "<br>Thefts:", Total_Auto_Thefts,
+    "<br>Year:", REPORT_YEAR
+  ),
   colors = "Set3",
   type = "scatter",
   mode = "markers"
@@ -445,19 +468,26 @@ row_house_plot <- plot_ly(
   layout(
     title = "Row Houses vs Auto Thefts by Neighborhood",
     xaxis = list(title = "Number of Housing Units"),
-    yaxis = list(title = "Number of Auto Thefts")
+    yaxis = list(title = "Number of Auto Thefts"),
+    hoverlabel = list(align = "left")
   )
 row_house_plot
 ```
 
 
-### G4 - Duplex Apt  
+### Duplex Apt  
 ```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 duplex_plot <- plot_ly(
   data = filter(plot_data, Housing_Type == "Duplex Apt"),
   x = ~Housing_Count,
   y = ~Total_Auto_Thefts,
   color = ~`Neighbourhood Name`,
+  text = ~paste(
+    "Neighborhood:", `Neighbourhood Name`,
+    "<br>Count:", Housing_Count,
+    "<br>Thefts:", Total_Auto_Thefts,
+    "<br>Year:", REPORT_YEAR
+  ),
   colors = "Set2",
   type = "scatter",
   mode = "markers"
@@ -465,18 +495,25 @@ duplex_plot <- plot_ly(
   layout(
     title = "Duplex Apartment vs Auto Thefts by Neighborhood",
     xaxis = list(title = "Number of Housing Units"),
-    yaxis = list(title = "Number of Auto Thefts")
+    yaxis = list(title = "Number of Auto Thefts"),
+    hoverlabel = list(align = "left")
   )
 duplex_plot
 ```
 
-### G5 - Lowrise Apt  
+### Lowrise Apt  
 ```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 lowrise_plot <- plot_ly(
   data = filter(plot_data, Housing_Type == "Lowrise Apt"),
   x = ~Housing_Count,
   y = ~Total_Auto_Thefts,
   color = ~`Neighbourhood Name`,
+  text = ~paste(
+    "Neighborhood:", `Neighbourhood Name`,
+    "<br>Count:", Housing_Count,
+    "<br>Thefts:", Total_Auto_Thefts,
+    "<br>Year:", REPORT_YEAR
+  ),
   colors = "Set3",
   type = "scatter",
   mode = "markers"
@@ -484,18 +521,25 @@ lowrise_plot <- plot_ly(
   layout(
     title = "Lowrise Apartment vs Auto Thefts by Neighborhood",
     xaxis = list(title = "Number of Housing Units"),
-    yaxis = list(title = "Number of Auto Thefts")
+    yaxis = list(title = "Number of Auto Thefts"),
+    hoverlabel = list(align = "left")
   )
 lowrise_plot
 ```
 
-### G5 - Highrise Apt  
+### Highrise Apt  
 ```{r, echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 highrise_plot <- plot_ly(
   data = filter(plot_data, Housing_Type == "Highrise Apt"),
   x = ~Housing_Count,
   y = ~Total_Auto_Thefts,
   color = ~`Neighbourhood Name`,
+  text = ~paste(
+    "Neighborhood:", `Neighbourhood Name`,
+    "<br>Count:", Housing_Count,
+    "<br>Thefts:", Total_Auto_Thefts,
+    "<br>Year:", REPORT_YEAR
+  ),
   colors = "Set1",
   type = "scatter",
   mode = "markers"
@@ -503,10 +547,24 @@ highrise_plot <- plot_ly(
   layout(
     title = "Highrise Apartment vs Auto Thefts by Neighborhood",
     xaxis = list(title = "Number of Housing Units"),
-    yaxis = list(title = "Number of Auto Thefts")
+    yaxis = list(title = "Number of Auto Thefts"),
+    hoverlabel = list(align = "left")
   )
-lowrise_plot
+highrise_plot
 ```
+
+
+
+##    
+Most points cluster in the lower corner, suggesting moderate levels of both auto thefts and various housing types, with no strong or consistent relationship observed. These scatterplots are useful for identifying the overall distribution and spotting potential outliers among neighbourhoods.
+
+
+
+
+
+
+
+
 
 
 
