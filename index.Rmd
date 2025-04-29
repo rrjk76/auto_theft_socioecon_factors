@@ -87,13 +87,11 @@ So, my data wrangling steps included:
 
 Table 2 summarizes the merged dataset, highlighting some of the key attributes retained from each census dataset, and shows the result of the data transposition:
 ```{r, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
-census_data |>
-  select(`Neighbourhood Name`, `Average total income`, `Low Income Prevalence (LIM-AT) %`, `Unemployment rate`) |> 
-  head(10) |>  
+census_data |> 
+  head(50) |>  
   kable(caption = "Neighbourhood Income Summary", align = "c") |>
-  kable_styling(font_size = 8,
-    full_width = FALSE
-    ) 
+  kable_styling(font_size = 12, full_width = FALSE) |>
+  scroll_box(width = "100%", height = "300px", fixed_thead = TRUE)
 ```
 
 Finally, the combined census dataset was merged with the Auto Theft dataset. I merged them using two key attributes: 
