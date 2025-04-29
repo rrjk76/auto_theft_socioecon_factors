@@ -1,0 +1,459 @@
+---
+title: "data_wrangling"
+output: html_document
+---
+
+```{r r setup, message=FALSE, echo=FALSE, error=FALSE, warning=FALSE}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(glue)
+library(stringr)
+library(tibble)
+library(opendatatoronto)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(ggcorrplot)
+library(wordcloud)
+library(RColorBrewer)
+library(tidyr)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+# Using CKANr API package to obtain 2021 dataset 
+# Copied out, since I saved the dataset after querying 
+
+# https://open.toronto.ca/dataset/neighbourhood-profiles/
+# package_id <- "6e19a90f-971c-46b3-852c-0c48c436d1fc"
+# resources <- list_package_resources(package_id)
+
+# Filter for the XLSX file for 2021
+# xlsx_file <- resources |> filter(str_detect(name, "2021") & str_detect(format, "XLSX"))
+# resource_id <- xlsx_file$id
+
+# Get the resource details using the resource ID
+# resource_details <- get_resource(resource_id)
+
+# hd2021_census_wide <- resource_details$hd2021_census_profile
+# write.csv(hd2021_census, "hd2021_census_wide.csv", row.names = FALSE, check.names = FALSE)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+hd2021_census_wide <- read.csv("hd2021_census.csv", check.names = FALSE)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE}
+# transpose the data
+transposed_data <- t(hd2021_census_wide)
+hd2021_census <- as.data.frame(transposed_data)
+
+# set the first row as column names
+colnames(hd2021_census) <- hd2021_census[1, ]
+hd2021_census <- hd2021_census[-1, ]
+
+# ensure column names are unique
+colnames(hd2021_census) <- make.unique(colnames(hd2021_census))
+
+# convert row names to a column
+hd2021_census <- hd2021_census |>
+  rownames_to_column(var = "Neighbourhood Name")
+
+# head(hd2021_census)
+# hd2021_census$`Neighbourhood Name` <- gsub("\\.", " ", hd2021_census$`Neighbourhood Name`)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+hd2021_census <- hd2021_census |>
+  mutate(
+    `Neighbourhood Number` = as.numeric(`Neighbourhood Number`),
+    `0 to 14 years` = as.numeric(`0 to 14 years`),
+    `15 to 19 years` = as.numeric(`15 to 19 years`),
+    `20 to 24 years` = as.numeric(`20 to 24 years`),
+    `25 to 29 years` = as.numeric(`25 to 29 years`),
+    `30 to 34 years` = as.numeric(`30 to 34 years`),
+    `35 to 39 years` = as.numeric(`35 to 39 years`),
+    `40 to 44 years` = as.numeric(`40 to 44 years`),
+    `45 to 49 years` = as.numeric(`45 to 49 years`),
+    `50 to 54 years` = as.numeric(`50 to 54 years`),
+    `55 to 59 years` = as.numeric(`55 to 59 years`),
+    `60 to 64 years` = as.numeric(`60 to 64 years`),
+  )
+
+hd2021_census <- hd2021_census |>
+  mutate(
+    `15 to 24 years` = rowSums(select(hd2021_census, 
+                                      `15 to 19 years`, 
+                                      `20 to 24 years`))
+  )
+
+hd2021_census <- hd2021_census |>
+  mutate(
+    `55 to 64 years` = rowSums(select(hd2021_census, 
+                                      `55 to 59 years`, 
+                                      `60 to 64 years`))
+  )
+
+hd2021_census <- hd2021_census |>
+  mutate(
+    `25 to 54 years` = rowSums(select(hd2021_census, 
+                                      `25 to 29 years`, 
+                                      `30 to 34 years`, 
+                                      `35 to 39 years`, 
+                                      `40 to 44 years`, 
+                                      `45 to 49 years`, 
+                                      `50 to 54 years`))
+  )
+
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+census_2021_cleaned <- hd2021_census |>
+  select("Neighbourhood Name", "Neighbourhood Number", 
+         "0 to 14 years", "15 to 24 years", "25 to 54 years", "55 to 64 years", 
+         "65 years and over", "85 years and over",
+         
+         # "Median total income in 2020 ($)", 
+         "Average total income in 2020 ($)", 
+         # "Median after-tax income in 2020 ($)", 
+         "Average after-tax income in 2020 ($)",
+         
+         "Prevalence of low income based on the Low-income measure, after tax (LIM-AT) (%)",
+         
+         "Average after-tax income of household in 2020 ($)",
+         
+         # Total - Population aged 15 years and over by labour force status 
+         "In the labour force",
+         "Employed",
+         "Unemployed",
+         "Not in the labour force",
+         
+         "Employment rate",
+         "Unemployment rate",
+         
+         
+         "Total - Mother tongue for the population in private households - 25% sample data",
+         all_of(names(hd2021_census)[441]),
+         all_of(names(hd2021_census)[442]),
+         all_of(names(hd2021_census)[444]),
+         all_of(names(hd2021_census)[536]),
+         all_of(names(hd2021_census)[444]),
+         all_of(names(hd2021_census)[609]),
+         all_of(names(hd2021_census)[631]),
+         all_of(names(hd2021_census)[651]),
+         all_of(names(hd2021_census)[652]),
+         all_of(names(hd2021_census)[683]),
+         all_of(names(hd2021_census)[691]),
+         all_of(names(hd2021_census)[692]),
+         all_of(names(hd2021_census)[694]),
+         all_of(names(hd2021_census)[728]),
+         all_of(names(hd2021_census)[751]),
+         
+         "Single-detached house",
+         "Semi-detached house",
+         "Row house",
+         "Apartment or flat in a duplex",
+         "Apartment in a building that has fewer than five storeys",
+         "Apartment in a building that has five or more storeys"
+  )
+
+# note: the first total incomes are from: Total - Income statistics for persons aged 15 years and over not in economic families in private households - 25% sample data
+
+
+# adding column "Year", set to 2020
+census_2021_cleaned$Year <- 2020
+```
+
+
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+df_2016 <- read.csv("df_2016.csv")
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+census_2016_cleaned <- df_2016 |>
+  select("X", "Neighbourhood.Number.Neighbourhood.Information",
+         
+         "Children..0.14.years..Age.characteristics",
+         "Youth..15.24.years..Age.characteristics",
+         "Working.Age..25.54.years..Age.characteristics",
+         "Pre.retirement..55.64.years..Age.characteristics",
+         "Seniors..65..years..Age.characteristics",
+         "Older.Seniors..85..years..Age.characteristics", 
+         
+         
+         "Total.income..Average.amount.....Income.sources",
+         "After.tax.income..Average.amount.....Income.sources",
+         
+         
+         # Prevalence of low income based on the Low-income measure, after tax (LIM-AT) (%) Low income in 2015
+         "Prevalence.of.low.income.based.on.the.Low.income.measure..after.tax..LIM.AT......Low.income.in.2015",
+         
+         
+         "Average.after.tax.income.of.households.in.2015.....Income.of.households.in.2015",
+         
+         
+         "In.the.labour.force.Labour.force.status",
+         "Employed.Labour.force.status",
+         "Unemployed.Labour.force.status",
+         "Not.in.the.labour.force.Labour.force.status",
+         
+         
+         
+         "Employment.rate.Labour.force.status",
+         "Unemployment.rate.Labour.force.status",
+         
+         
+         "Mother.tongue.for.the.total.population.excluding.institutional.residents.Mother.tongue",
+         "English.Mother.tongue",
+         "French.Mother.tongue",
+         "Aboriginal.languages.Mother.tongue",
+         "Afro.Asiatic.languages.Mother.tongue",
+         "Slavic.languages.Mother.tongue",
+         "Germanic.languages.Mother.tongue",
+         "Greek.Mother.tongue",
+         "Indo.Iranian.languages.Mother.tongue",
+         "Italic..Romance..languages.Mother.tongue",
+         "Japanese.Mother.tongue",
+         "Korean.Mother.tongue",
+         "Niger.Congo.languages.Mother.tongue",
+         "Sino.Tibetan.languages.Mother.tongue",
+         "Turkic.languages.Mother.tongue",
+         
+         "Single.detached.house.Household.and.dwelling.characteristics",
+         "Semi.detached.house.Household.and.dwelling.characteristics",
+         "Row.house.Household.and.dwelling.characteristics",
+         "Apartment.or.flat.in.a.duplex.Household.and.dwelling.characteristics",
+         "Apartment.in.a.building.that.has.fewer.than.five.storeys.Household.and.dwelling.characteristics",
+         "Apartment.in.a.building.that.has.five.or.more.storeys.Household.and.dwelling.characteristics"
+  )
+census_2016_cleaned$Year <- 2015
+```
+
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# Renaming Column Names:
+
+# first in 2021 census: 
+census_2021_cleaned <- census_2021_cleaned |>
+  rename(`Average total income` = `Average total income in 2020 ($)`,
+         `Average after-tax income` = `Average after-tax income in 2020 ($)`,
+         `Low Income Prevalence (LIM-AT) %` = `Prevalence of low income based on the Low-income measure, after tax (LIM-AT) (%)`,
+         `Average after-tax income of household` = `Average after-tax income of household in 2020 ($)`,
+         `Total Mother Tongue` = `Total - Mother tongue for the population in private households - 25% sample data`,
+         `English` = `English.1`,
+         `French` = `French.1`,
+         
+         `Duplex Apt` = `Apartment or flat in a duplex`,
+         `Lowrise Apt` = `Apartment in a building that has fewer than five storeys`,
+         `Highrise Apt` = `Apartment in a building that has five or more storeys`
+  )
+
+# census_2021_cleaned <- census_2021_cleaned |>
+#  mutate(`Neighbourhood Name` = case_when(
+  #  `Neighbourhood Name` == "Downsview" ~ "Downsview-Roding-CFB",
+ #   TRUE ~ `Neighbourhood Name`
+#))
+
+#census_2021_cleaned <- census_2021_cleaned |>
+#  mutate(`Neighbourhood Number` = case_when(
+#    `Neighbourhood Number` == "155" ~ "26",
+  #  TRUE ~ as.character(`Neighbourhood Number`)  
+ # )) |>
+#  mutate(`Neighbourhood Number` = as.numeric(`Neighbourhood Number`))
+
+census_2021_cleaned <- census_2021_cleaned |>
+  mutate(
+    `Neighbourhood Name` = case_when(
+      `Neighbourhood Name` == "Downsview" ~ "Downsview-Roding-CFB",
+      `Neighbourhood Name` == "Islington" ~ "Islington-City Centre West",
+      `Neighbourhood Name` == "Golfdale Cedarbrae Woburn" ~ "Woburn",
+      `Neighbourhood Name` == "Woburn North" ~ "Woburn",
+      `Neighbourhood Name` == "West Rouge" ~ "Rouge",
+      `Neighbourhood Name` == "Bendale South" ~ "Bendale",
+      `Neighbourhood Name` == "Bendale Glen Andrew" ~ "Bendale",
+      `Neighbourhood Name` == "East L Amoreaux"~ "L'Amoreaux",
+      `Neighbourhood Name` == "L Amoreaux West"~ "L'Amoreaux",
+      `Neighbourhood Name` == "Dovercourt Village" ~ "Dovercourt-Wallace Emerson-Junction",
+      TRUE ~ `Neighbourhood Name`
+    ),
+    `Neighbourhood Number` = case_when(
+      as.character(`Neighbourhood Number`) == "155" ~ "26",
+      as.character(`Neighbourhood Number`) == "158" ~ "14",
+      as.character(`Neighbourhood Number`) == "141" ~ "137",
+      as.character(`Neighbourhood Number`) == "142" ~ "137",
+      as.character(`Neighbourhood Number`) == "143" ~ "131",
+      as.character(`Neighbourhood Number`) == "156" ~ "127",
+      as.character(`Neighbourhood Number`) == "157" ~ "127",
+      as.character(`Neighbourhood Number`) == "147" ~ "117",
+      as.character(`Neighbourhood Number`) == "148" ~ "117",
+      as.character(`Neighbourhood Number`) == "172" ~ "93",
+      TRUE ~ as.character(`Neighbourhood Number`)
+    ),
+    `Neighbourhood Number` = as.numeric(`Neighbourhood Number`)  # after replacements
+  )
+
+# Change data type of all columns except `col1` and `col2`
+exclude_cols <- c("Neighbourhood Name")
+census_2021_cleaned <- census_2021_cleaned |>
+  mutate(across(-all_of(exclude_cols), as.numeric))
+
+census_2021_cleaned$`Total average after-tax household income` <- mean(census_2021_cleaned$`Average after-tax income of household`)
+
+census_2021_cleaned <-census_2021_cleaned |>
+  group_by(`Neighbourhood Name`, `Neighbourhood Number`, `Year`) |>
+  summarise(across(everything(), sum, na.rm = TRUE), .groups = "drop")
+
+# census_2021_cleaned <- census_2021_cleaned |>
+#  mutate(`Neighbourhood Name` = case_when(
+#    `Neighbourhood Name` == "Islington" ~ "Islington-City Centre West",
+#    TRUE ~ `Neighbourhood Name`
+# ))
+
+#census_2021_cleaned <- census_2021_cleaned |>
+#  mutate(`Neighbourhood Number` = case_when(
+#    `Neighbourhood Number` == "158" ~ "14",
+#    TRUE ~ as.character(`Neighbourhood Number`)  
+#  )) |>
+#  mutate(`Neighbourhood Number` = as.numeric(`Neighbourhood Number`))
+
+ 
+# census_2021_cleaned <- census_2021_cleaned |>
+#  mutate(`Neighbourhood Name` = case_when(
+#    `Neighbourhood Name` == "Woburn North" ~ "Woburn",
+#    TRUE ~ `Neighbourhood Name`
+#))
+
+#census_2021_cleaned <- census_2021_cleaned |>
+#  mutate(`Neighbourhood Number` = case_when(
+#    `Neighbourhood Number` == "142" ~ "137",
+#    TRUE ~ as.character(`Neighbourhood Number`)  
+#  )) |>
+#  mutate(`Neighbourhood Number` = as.numeric(`Neighbourhood Number`))
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# adding column name for merging later with the policing dataset 
+census_2021_cleaned$NEIGHBOURHOOD_140 <- paste(census_2021_cleaned$"Neighbourhood Name", " (", census_2021_cleaned$"Neighbourhood Number", ")", sep="")
+
+census_2016_cleaned$NEIGHBOURHOOD_140 <- paste(census_2016_cleaned$"X", " (", census_2016_cleaned$"Neighbourhood.Number.Neighbourhood.Information", ")", sep="")
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# Now rename columns names in 2016 census: 
+
+census_2016_cleaned <- census_2016_cleaned |>
+  rename(`Neighbourhood Name` = `X`, 
+         `Neighbourhood Number` = `Neighbourhood.Number.Neighbourhood.Information`,
+         
+         `0 to 14 years` = `Children..0.14.years..Age.characteristics`,
+         `15 to 24 years` = `Youth..15.24.years..Age.characteristics`,
+         `25 to 54 years` = `Working.Age..25.54.years..Age.characteristics`,
+         `55 to 64 years` = `Pre.retirement..55.64.years..Age.characteristics`,
+         `65 years and over` = `Seniors..65..years..Age.characteristics`,
+         `85 years and over` = `Older.Seniors..85..years..Age.characteristics`, 
+         
+         
+         `Average total income` = `Total.income..Average.amount.....Income.sources`,
+         `Average after-tax income` = `After.tax.income..Average.amount.....Income.sources`,
+         
+         
+         # Prevalence of low income based on the Low-income measure, after tax (LIM-AT) (%) Low income in 2015
+         `Low Income Prevalence (LIM-AT) %` =  `Prevalence.of.low.income.based.on.the.Low.income.measure..after.tax..LIM.AT......Low.income.in.2015`,
+         
+         
+         `Average after-tax income of household` = `Average.after.tax.income.of.households.in.2015.....Income.of.households.in.2015`,
+         
+         
+         `In the labour force` = `In.the.labour.force.Labour.force.status`,
+         `Employed` = `Employed.Labour.force.status`,
+         `Unemployed` = `Unemployed.Labour.force.status`,
+         `Not in the labour force` = `Not.in.the.labour.force.Labour.force.status`,
+         
+         
+         
+         `Employment rate` = `Employment.rate.Labour.force.status`,
+         `Unemployment rate` = `Unemployment.rate.Labour.force.status`,
+         
+         
+         `Total Mother Tongue` = `Mother.tongue.for.the.total.population.excluding.institutional.residents.Mother.tongue`,
+         `English` = `English.Mother.tongue`,
+         `French` = `French.Mother.tongue`,
+         `Indigenous languages` = `Aboriginal.languages.Mother.tongue`,
+         `Afro-Asiatic languages` = `Afro.Asiatic.languages.Mother.tongue`,
+         `Slavic languages` = `Slavic.languages.Mother.tongue`,
+         `Germanic languages` = `Germanic.languages.Mother.tongue`,
+         `Greek` = `Greek.Mother.tongue`,
+         `Indo-Iranian languages` = `Indo.Iranian.languages.Mother.tongue`,
+         `Italic (Romance) languages` = `Italic..Romance..languages.Mother.tongue`,
+         `Japanese` = `Japanese.Mother.tongue`,
+         `Korean` = `Korean.Mother.tongue`,
+         `Niger-Congo languages` = `Niger.Congo.languages.Mother.tongue`,
+         `Sino-Tibetan languages` = `Sino.Tibetan.languages.Mother.tongue`,
+         `Turkic languages` = `Turkic.languages.Mother.tongue`, 
+         
+        `Single-detached house` = `Single.detached.house.Household.and.dwelling.characteristics`,
+        `Semi-detached house` = `Semi.detached.house.Household.and.dwelling.characteristics`,
+        `Row house` = `Row.house.Household.and.dwelling.characteristics`,
+        `Duplex Apt` = `Apartment.or.flat.in.a.duplex.Household.and.dwelling.characteristics`,
+        `Lowrise Apt` = `Apartment.in.a.building.that.has.fewer.than.five.storeys.Household.and.dwelling.characteristics`,
+        `Highrise Apt` = `Apartment.in.a.building.that.has.five.or.more.storeys.Household.and.dwelling.characteristics`
+  )
+
+census_2016_cleaned <- census_2016_cleaned |>
+  arrange(`Neighbourhood Number`)
+
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# writing to csv for easier access later (if everything is wiped out in the R environment)
+# census_2021_cleaned <- data.frame(census_2021_cleaned, check.names = FALSE)
+# write.csv(census_2021_cleaned, "../data/census_2021_cleaned.csv", row.names = FALSE)
+
+# census_2016_cleaned <- data.frame(census_2016_cleaned, check.names = FALSE)
+# write.csv(census_2016_cleaned, "../data/census_2016_cleaned.csv", row.names = FALSE)
+
+# reading in in case it is needed: 
+# census_2016_cleaned <- read.csv("../data/census_2016_cleaned.csv", check.names = FALSE)
+# census_2021_cleaned <- read.csv("../data/census_2020_cleaned.csv", check.names = FALSE)
+```
+
+
+``` {r echo=FALSE, error=FALSE, warning=FALSE}
+# now, combining the 2 datasets: 
+exclude_cols <- c("Neighbourhood Name", "NEIGHBOURHOOD_140")
+
+# Change data type of all columns except `col1` and `col2`
+census_2021_cleaned <- census_2021_cleaned |>
+  mutate(across(-all_of(exclude_cols), as.numeric))
+
+census_2021_cleaned$`Total average after-tax household income` <- mean(census_2021_cleaned$`Average after-tax income of household`)
+census_2016_cleaned$`Total average after-tax household income` <- 81495
+
+
+census_data <- bind_rows(census_2016_cleaned, census_2021_cleaned)
+
+# census_data <- data.frame(census_data, check.names = FALSE)
+# write.csv(census_data, "../data/census_data.csv", row.names = FALSE)
+# census_data <- read.csv("../data/census_data.csv", check.names = FALSE)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# Loading the second dataset (which is the Auto Theft Open Data) - this one requires no API, I simply downloaded the dataset online. 
+auto_theft_data <- read.csv("../data/Auto_Theft_Open_Data.csv")
+
+# keep only auto_theft_data from 2015 and 2020
+auto_theft_2015_2020 <- auto_theft_data |>
+  filter(REPORT_YEAR == 2015 | REPORT_YEAR == 2020)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+auto_theft_census <- merge(auto_theft_2015_2020, census_data, by.x = c("NEIGHBOURHOOD_140", "REPORT_YEAR"), by.y = c("NEIGHBOURHOOD_140", "Year"))
+
+# auto_theft_census <- data.frame(auto_theft_census, check.names = FALSE)  # Prevents column name changes
+# write.csv(auto_theft_census, "../data/auto_theft_census.csv", row.names = FALSE)
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE}
+# auto_theft_census <- read.csv("data/auto_theft_census.csv", check.names = FALSE )
+```
