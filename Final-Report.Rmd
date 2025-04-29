@@ -110,7 +110,7 @@ census_data |>
     ) 
 ```
 
-Finally, the combined census dataset was merged with the Auto Theft dataset. I merged them using twk key attributes: 
+Finally, the combined census dataset was merged with the Auto Theft dataset. I merged them using two key attributes: 
 
 * NEIGHBOURHOOD_140 (to match neighbourhoods across datasets).
 * Year and REPORT_YEAR (to ensure data alignment by year).
