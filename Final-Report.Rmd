@@ -221,7 +221,7 @@ kable(
   row_spec(0, bold = TRUE, color = "white", background = "#4C4C4C") 
 ```
 
-In Table 3, we can see that using the training data, there is an increase in the total number of auto thefts between 2015 and 2020. On the contrary, the average income remains rather the stagnant, with a slight decrease from $49,183 in 2015 to \$49,095 in 2020. We do see, however, see that there is a surge in the unemployment rate, rising sharply from 8.62% in 2015 to 14.58% in 2020. This is likely influenced by the economic disruptions from the COVID-19 pandemic, and I will take this into account for this analysis. Finally, Table 3 shows us that the percentage of the population classified as low-income declined from 19.61% to 12.15%, suggesting potential improvements in economic conditions for some groups.
+In Table 3, we can see that using the training data, there is an increase in the total number of auto thefts between 2015 and 2020, rising from 2,263 to 3,618. On the contrary, the average income remains rather stagnant, with instead a slight decrease from $50,273.53 in 2015 to \$49,081.37 in 2020. We do see, however, see that there is a surge in the unemployment rate, rising sharply from 8.59% in 2015 to 14.56% in 2020. This is likely influenced by the economic disruptions from the COVID-19 pandemic, and I will take this into account for this analysis. Finally, Table 3 shows us that the percentage of the population classified as low-income declined from 19.46% to 12.10%, suggesting potential improvements in economic conditions for some groups.
 
 ```{r echo=FALSE, error=FALSE, warning=FALSE, eval=FALSE, message=FALSE}
 neighbourhood_summary <- train_data |>
@@ -445,7 +445,7 @@ plotly_income_plot <- ggplotly(ggplot_income_plot)
 knitr::include_graphics(c("./images/bars2015.png","./images/bars2020.png"))
 ``` 
 
-The plots in Figure 3 illustrate the highest and lowest average individual incomes, while also including West Humber-Clairville for comparison. Since West Humber-Clairville recorded the highest number of auto theft incidents in both 2015 and 2020, its inclusion allows for a deeper investigation into whether average individual income may be a potential confounding factor. As seen in both years, the average income of West Humber-Clairville is much closer to that of the lowest-income neighbourhoods. Additionally, many of the lowest-income neighbourhoods, such as Black Creek, Mount Olive–Jamestown, Agincourt North, and Milliken, also appear among the top 20 neighbourhoods with the highest auto theft counts. This suggests a potential association between lower income levels and higher rates of auto theft, although other factors should also be considered and investigated further.
+The plots in Figure 3 illustrate the highest and lowest average individual incomes, while also including West Humber-Clairville for comparison. Since West Humber-Clairville recorded the highest number of auto theft incidents in both 2015 and 2020, its inclusion allows for a deeper investigation into whether average individual income may be a potential confounding factor. As seen in both years, the average income of West Humber-Clairville is much closer to that of the lowest-income neighbourhoods. Additionally, many of the lowest-income neighbourhoods, such as Black Creek, Mount Olive–Jamestown, Agincourt North, and Milliken, also appear among the top 20 neighbourhoods with the highest auto theft counts (Figure 2). This suggests a potential association between lower income levels and higher rates of auto theft, although other factors should also be considered and investigated further.
 
 ```{r echo=FALSE, error=FALSE, warning=FALSE, message=FALSE, eval=FALSE}
 options(scipen=999)
@@ -506,7 +506,7 @@ boxplot_income <- plot_ly(
 # htmlwidgets::saveWidget(widget = boxplot_income, file = "./images/boxplot.html")
 # webshot(url = "./images/boxplot.html", file = "./images/boxplot.png", delay = 1, zoom = 4, vheight = 500)
 ```
-To explore the impact of average income on auto thefts further, Figure 4 presents a box plot that categorizes neighbourhoods into five income brackets, examining whether lower average individual income correlates with higher auto theft rates. It is important to note that in 2020, there are no neighbourhoods within the lowest income bracket (below $30K), likely reflecting broader income shifts over time. The figure illustrates that neighbourhoods in lower income brackets tend to experience greater variability in auto theft incidents, as indicated by wider interquartile ranges and longer tails. In contrast, higher-income brackets exhibit less variation, with narrower boxes and fewer extreme values. Notably, the highest recorded auto theft count—previously identified as West Humber-Clairville—falls within one of the lower income brackets (30K-75K) in both 2015 and 2020, once again reinforcing the relationship between lower neighbourhood income levels and higher auto theft rates.
+To explore the impact of average income on auto thefts further, Figure 4 presents a box plot that categorizes neighbourhoods into five income brackets, examining whether lower average individual income in a neighbourhood correlates with higher auto theft rates. It is important to note that in 2020, there are no neighbourhoods within the lowest income bracket (below $30K), likely reflecting broader income shifts over time. The figure illustrates that neighbourhoods in lower income brackets tend to experience greater variability in auto theft incidents, as indicated by wider interquartile ranges and longer tails. In contrast, higher-income brackets exhibit less variation, with narrower boxes and fewer extreme values. Notably, the highest recorded auto theft count (which was previously identified as West Humber-Clairville) falls within one of the lower income brackets (30K-75K) in both 2015 and 2020, once again reinforcing the relationship between lower neighbourhood income levels and higher auto theft rates.
 
 ![Boxplot using 5 breaks analyzing auto theft incidents across income groups](./images/boxplot.png)
 
@@ -544,12 +544,12 @@ total_auto_theft <- train_data |>
   summarise(Total_Auto_Theft = n()) |>
   arrange(desc(Total_Auto_Theft))
 
-top_5_neighborhoods <- total_auto_theft |>
+top_5_neighbourhoods <- total_auto_theft |>
   top_n(5, Total_Auto_Theft) |>
   pull(NEIGHBOURHOOD_140)
 
 top_5_data <- train_data |>
-  filter(NEIGHBOURHOOD_140 %in% top_5_neighborhoods)
+  filter(NEIGHBOURHOOD_140 %in% top_5_neighbourhoods)
 
 top_5_age_data <- top_5_data |>
   group_by(NEIGHBOURHOOD_140, REPORT_YEAR) |>
@@ -643,11 +643,11 @@ kable(
 \end{wrapfigure}
 ```
 
-Table 5 and Figure 5 show the age distributions across neighbourhoods and their correlations with auto theft incidents. A negative correlation of -0.603 between auto theft and the 0–14 age group suggests that areas with more children tend to have fewer thefts, which reflects the group's limited association with auto theft crimes.
+Table 5 and Figure 5 show the age distributions across neighbourhoods and their correlations with auto theft incidents. A negative correlation of -0.603 between auto theft and the 0–14 age group suggests that areas with a higher percentage of children tend to have fewer thefts, which reflects the group's limited association with auto theft crimes.
 
 The 15–24 age group shows a weak positive correlation of 0.262, likely because this is when many individuals start driving, which has the potential of increasing theft risk. The 25–54 group has a minimal correlation (0.095), while the 55–64 group shows a slightly stronger but still weak positive correlation (0.273), possibly linked to vehicle ownership patterns.
 
-For the 65+ age group, the correlation is -0.069, suggesting neighbourhoods with more seniors experience slightly fewer auto thefts, though this relationship is rather weak.
+For the 65+ age group, the correlation is -0.069, suggesting neighbourhoods with a higher percentage of seniors experience slightly fewer auto thefts, though this relationship is rather weak.
 
 Overall, while age distributions show some association with auto theft trends, the correlations are generally weak, indicating that other factors likely play a larger role.
 
@@ -718,7 +718,7 @@ plots <- lapply(housing_types, function(housing) {
 plots
 ```
 
-I also explored the relationship between different housing types, such as duplexes, high-rises (over 5 storeys), low-rises (under 5 storeys), semi-detached houses, single-detached houses, and row houses with auto theft incidents. I created interactive scatterplots for each, which are available under the Interactive Visualizations tab on my website listed under the subsetction Housing Plots. Figure 6 below shows a snapshot focusing specifically on the number of duplexes in neighbourhoods compared to the number of auto thefts.
+I also explored the relationship between different housing types, such as duplexes, high-rises (over 5 storeys), low-rises (under 5 storeys), semi-detached houses, single-detached houses, and row houses with auto theft incidents. I created an interactive scatterplots for each housing type, which are available under the Interactive Visualizations tab on my website listed under the subsetction Housing Plots. Figure 6 below shows a snapshot focusing specifically on the number of duplexes in neighbourhoods compared to the number of auto thefts.
 
 ```{=latex}
 \begin{wrapfigure}{L}{0.6\textwidth}
@@ -847,14 +847,14 @@ tree <- rpart.plot(tree_prune, main = "Pruned Decision Tree")
 \begin{wrapfigure}{L}{0.75\textwidth}
 \centering
 \includegraphics[width=0.9\linewidth]{./images/tree.png}
-\caption{Classification Decision Tree on Theft Levels: Low, Normal, High}
+\caption{Pruned Classification Decision Tree on Theft Levels: Low, Normal, High}
 \label{fig:classTree}
 \end{wrapfigure}
 ```
 
-Figure 7 illustrates how the decision tree visually represents the influence of different factors on classifications into three categories: Low, Medium, and High. Each node splits based on conditions such as employment rate, language prevalence, and crime-related statistics. The tree suggests that factors like the number of unemployed individuals, employment rate, and low-income prevalence play the most significant roles in determining the final classification, whereas language demographics, certain age groups, and housing types play secondary roles. This is seen, since when the tree branches further, more specific conditions, such as language prevalence and theft-related data, refine the categorization.
+Figure 7 depicts the pruned decision tree, and it illustrates how the decision tree visually represents the influence of different factors on classifications into three categories: Low, Medium, and High. Each node splits based on conditions such as employment rate, language prevalence, and crime-related statistics. The tree suggests that factors like the number of unemployed individuals, employment rate, and low-income prevalence play the most significant roles in determining the final classification, whereas language demographics, certain age groups, and housing types play secondary roles. This is seen, since when the tree branches further, more specific conditions, such as language prevalence and theft-related data, refine the categorization.
 
-To complement the Decision Tree model, I also fit a __Gradient Boosted Machine (GBM)__ model using a multinomial distribution to handle the three-category classification of auto theft levels (Low, Medium, High). I used 100 trees with an interaction depth of 3, a shrinkage rate of 0.1, and 5-fold cross-validation to help prevent overfitting. Figure 8 shows the plot below.
+To complement the Decision Tree model, I also fit a __Gradient Boosted Machine (GBM)__ model using a multinomial distribution to handle the three-category classification of auto theft levels (Low, Medium, High). I used 100 trees with an interaction depth of 3, a shrinkage rate of 0.1, and 5-fold cross-validation. Figure 8 shows the plot below.
 
 ```{r echo=FALSE, error=FALSE, warning=FALSE, eval=TRUE, message=FALSE, results='hide'}
 set.seed(1243)
@@ -918,7 +918,7 @@ varImpBoost <- var_importance |>
 
 ![Bar Graph For Boosting Variable Importance](./images/varImpBoost.png){width=75%}
 
-To also get a better sense of variable importance, the bar chart in Figure 9 above ranks variables by their importance in the classification boosting model. The most influential factor include unemployed, followed by various language groups (Italic (Romance Languages, and French)), housing types (single-detatched house), age groups, and economic indicators. These variables contribute differently to the model's predictions, shaping its outcomes based on their relative importance. On the contrary, some languages groups (like Japanese and Indigenous languages), and average total income, are amongst the lower importance. This means those variables have less impact on the model’s classification decisions and may offer limited predictive value in this context.
+To also get a better sense of variable importance, the bar chart in Figure 9 above ranks variables by their importance in the classification boosting model. The most influential factor include unemployed, followed by various language groups (Italic (Romance) Languages, and French)), housing types (single-detatched house), age groups, and economic indicators. These variables contribute differently to the model's predictions, shaping its outcomes based on their relative importance. On the contrary, some languages groups (like Japanese and Indigenous languages), and average total income, are amongst the lower importance. This means those variables have less impact on the model’s classification decisions and may offer limited predictive value in this context.
  
 
 ```{r echo=FALSE, error=FALSE, warning=FALSE, eval=TRUE, message=FALSE}
@@ -981,7 +981,7 @@ test_data_reg <- test_data[, !names(test_data) %in% cols_to_remove]
 
 Once again, I started with the __Decision Tree__ model, fitting a primary model using the `rpart()` function with `anova` method, but this time I trained on the `auto_theft_count` target variable and other predictors, then pruned the tree to try avoiding overfitting and improve model performance.
 ```{r echo=FALSE, error=FALSE, warning=FALSE, eval=TRUE, message=FALSE}
-set.seed(1243)
+set.seed(1240)
 tree <- rpart(
   auto_theft_count ~ .,
   data = train_data_reg,
@@ -990,12 +990,17 @@ tree <- rpart(
 )
 ```
 
-```{r echo=FALSE, error=FALSE, warning=FALSE, eval=FALSE, message=FALSE}
+```{r echo=FALSE, error=FALSE, warning=FALSE, eval=TRUE, message=FALSE}
 optimalcp <- tree$cptable[which.min(tree$cptable[, "xerror"]), "CP"]
 # optimalcp
 
+```
+
+```{r echo=FALSE, error=FALSE, warning=FALSE, eval=TRUE, message=FALSE, results='hide'}
+pdf(NULL)
 tree_prune<-prune(tree, cp = optimalcp)
 rpart.plot(tree_prune)
+dev.off()              
 ```
 
 ```{=latex}
@@ -1124,10 +1129,10 @@ var_imp <- varImp(xgb_model)
 \end{wrapfigure}
 ```
 
-Next, for __XGBoost model__, I found that the best XGBoost model used 300 trees with a maximum depth of 6, a low learning rate of 0.01, and sampled 80% of features and 80% of observations at each iteration. Figure 13 highlights the top 20 variables in terms of importance. In this model, Duplex Apartment emerged as the most important predictor, followed by the Unemployed count. This suggests that neighbourhoods with a higher number of duplex apartments and unemployed individuals are more influential in determining the model's classification of auto theft rates. These variables may be capturing underlying socioeconomic or structural conditions that are closely linked to crime patterns.
+Next, for __XGBoost model__, I found that the best XGBoost model used 300 trees with a maximum depth of 6, a low learning rate of 0.01, and sampled 80% of features and 80% of observations at each iteration. Figure 13 highlights the top 20 variables in terms of importance. In this model, Duplex Apartment emerged as the most important predictor, followed by the Unemployed count. This suggests that neighbourhoods with a higher number of duplex apartments and unemployed individuals are more influential in determining the model's classification of auto theft rates. This also shows how this modelling is capturing some underlying socioeconomic conditions that are linked to crime patterns.
 
 
-Now, to establish a baseline for comparison, I fit a multiple linear regression model. I first fit a model using all available predictors to estimate the number of auto thefts. The linear model assumes a straight-line relationship between each predictor and the target variable. I also used the `step_model()` function to try improving the linear model by selecting better combinations of predictors. I emplored step-wise selection (AIC-based), in both directions to automatically select a subset of predictors that balance model fit and complexity. This method systematically adds or removes predictors to find a simpler model that balances goodness of fit and complexity. I then evaluated the resulting model's performance using RMSE and $R^2$ on the test data. Below Table 8 shows that using the step model, the RMSE barely improved (only ~0.28 lower), and the $R^2$ actually worsened slightly (from 0.76 $\rightarrow$ 0.75. So, though the stepwise selection produced a slightly simpler model with minimal change in RMSE, the full linear model still showed a marginally better fit (higher $R^2$), indicating that all predictors offered some explanatory value in estimating auto theft counts.
+Now, to establish a baseline for comparison, I fit a multiple linear regression model. I first fit a model using all available predictors to estimate the number of auto thefts. The linear model assumes a straight-line relationship between each predictor and the target variable. I also used the `step_model()` function to try improving the linear model by selecting better combinations of predictors. I emplored step-wise selection (AIC-based), in both directions to automatically select a subset of predictors that balance model fit and complexity. This method systematically adds or removes predictors to find a simpler model that balances goodness of fit and complexity. I then evaluated the resulting model's performance using RMSE and $R^2$ on the test data. Below Table 8 shows that using the step model, the RMSE barely improved (only ~0.28 lower), and the $R^2$ actually worsened slightly (from 0.76 $\rightarrow$ 0.75). So, though the stepwise selection produced a slightly simpler model with minimal change in RMSE, the full linear model still showed a marginally better fit (higher $R^2$), indicating that all predictors offered some explanatory value in estimating auto theft counts.
 
 
 ```{r echo=FALSE, error=FALSE, warning=FALSE, eval=TRUE, message=FALSE}
@@ -1172,13 +1177,13 @@ In comparing the six models, the Decision Tree model achieved the best overall p
 
 The full and step-wise linear regression models performed quite well in terms of variance explanation ($R^2$ of 0.76 and 0.75, respectively), but their RMSE values (32.44 and 32.16) were higher compared to the other models, indicating that these models had less precise predictions. 
 
-Overall, the Decision Tree model demonstrated the best balance between predictive accuracy and explanatory power and would be recommended as the most suitable model for this dataset.
+Overall, I believe that the Decision Tree model demonstrated the best balance between predictive accuracy and explanatory power, and I would say the Decision Tree model came out to be the most suitable model for this dataset.
 
 
 # Conclusions and Summary
 
 ## Key Findings 
-Lower average income neighbourhoods, such as West Humber-Clairville, showed higher auto theft rates, illustrating a relationship between economic disadvantages and crime. Incidents in West Humber-Clairville rose quite sharply between 2015 and 2020, and this is likely due to pandemic-related economic disruptions and instabilities, as unemployment rates surged from 8.6% to 14.6%. Higher unemployment rates also correlated with increased auto theft incidents (correlation of 0.23), supporting broader criminological theories connecting economic instability to property crime. Box plots of income brackets further solidified this relationship, since there was much greater variability in theft incidents among lower-income neighbourhoods. It is important to note, however, that higher-income areas had fewer data points, so this could have possibly affected and skewed the results. Interestingly, low-income prevalence showed a negative correlation with auto theft (-0.24). This may be a reflection of underreporting in marginalized communities, or the influence of unexplored confounding variables like policing density. 
+Lower average income neighbourhoods, such as West Humber-Clairville, showed higher auto theft rates, illustrating a relationship between economic disadvantages and crime. Incidents in West Humber-Clairville (and all Toronto neighbourhoods that appeared in Figure 2 of the top 20 neighbourhoods with the most theft reported) rose quite sharply between 2015 and 2020, and this is likely due to pandemic-related economic disruptions and instabilities, as unemployment rates surged from 8.6% to 14.6%. Higher unemployment rates also correlated with increased auto theft incidents (correlation of 0.23), supporting broader criminological theories connecting economic instability to property crime. Box plots of income brackets further solidified this relationship, since there was much greater variability in theft incidents among lower-income neighbourhoods. It is important to note, however, that higher-income areas had fewer data points, so this could have possibly affected and skewed the results. Interestingly, low-income prevalence showed a negative correlation with auto theft (-0.24). This may be a reflection of underreporting in marginalized communities, or the influence of unexplored confounding variables like policing density. 
 
 Age demographics showed some correlation with auto theft rates, as neighbourhoods with more children, ages 0–14, had fewer thefts (-0.60 correlation), while those with more youth, ages 15–24, saw slightly more incidents (+0.26 correlation). Still, these patterns are weaker than socioeconomic factors like unemployment or income, suggesting age is a secondary influence. While youth-focused interventions may offer marginal benefits, tackling economic issues would likely have a greater impact. Housing types, meanwhile, showed little to no direct correlation with auto theft, indicating that residential structure alone isn't a strong predictor. Although some areas like West Humber-Clairville had both high theft and concentrated number of duplex apartments, no consistent trends emerged across neighbourhoods.
 
